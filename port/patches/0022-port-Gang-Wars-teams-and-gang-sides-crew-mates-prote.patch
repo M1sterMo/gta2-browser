@@ -1,7 +1,7 @@
 From 46efe9ac67187d3cc66bfff0fa92d35b9a1c13fe Mon Sep 17 00:00:00 2001
 From: GTA2 port <port@localhost>
 Date: Wed, 14 Oct 2026 12:21:49 +1100
-Subject: [PATCH 22/24] port: Gang Wars teams and gang sides (crew-mates
+Subject: [PATCH 22/25] port: Gang Wars teams and gang sides (crew-mates
  protected, respect by side on the first tick); standings snapshot every tick
 
 ---

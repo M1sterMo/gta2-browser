@@ -362,6 +362,13 @@ EMSCRIPTEN_KEEPALIVE const uint32_t* gta2_port_input_stats()
 }
 
 // Releases every held key, e.g. when the page loses focus.
+// Frontend.cpp (patch 0025): whether a key is down, or was pressed since the game last read the
+// keyboard. The menus that come back after a game treat such keys as held until released.
+int Gta2Port_KeyHeld(int scancode)
+{
+    return scancode > 0 && scancode < 256 && (gKeys[scancode] | gLatched[scancode]) ? 1 : 0;
+}
+
 EMSCRIPTEN_KEEPALIVE void gta2_port_release_all_keys()
 {
     for (int sc = 1; sc < 256; ++sc)

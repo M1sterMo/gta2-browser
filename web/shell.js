@@ -116,6 +116,8 @@ registerDict({
     'shell.helpFfa': 'Everyone against everyone, GTA2\'s own frag game: first to the kill limit wins.',
     'shell.tagHost': '(host)',
     'shell.tagYou': '— you',
+    'shell.radioNeedsCar': 'The radio is in cars: get in one, then press R',
+    'shell.gameLang': 'Game language: {language} (the host\'s, the same for everyone)',
     'shell.pickGang': 'Pick a gang…',
     'shell.gangTaken': '{gang} (taken)',
     'shell.sidesWith': 'sides with {gang}',
@@ -228,6 +230,8 @@ registerDict({
     'shell.helpFfa': 'Todos contra todos, el modo clásico de GTA2: gana el primero que llegue al límite de asesinatos.',
     'shell.tagHost': '(anfitrión)',
     'shell.tagYou': '— tú',
+    'shell.radioNeedsCar': 'La radio está en los coches: sube a uno y pulsa R',
+    'shell.gameLang': 'Idioma del juego: {language} (el del anfitrión, igual para todos)',
     'shell.pickGang': 'Elige una banda…',
     'shell.gangTaken': '{gang} (ocupada)',
     'shell.sidesWith': 'se alía con {gang}',
@@ -345,6 +349,8 @@ registerDict({
       'de meurtres gagne.',
     'shell.tagHost': '(hôte)',
     'shell.tagYou': '— vous',
+    'shell.radioNeedsCar': 'La radio est dans les voitures : montez dans une, puis appuyez sur R',
+    'shell.gameLang': 'Langue du jeu : {language} (celle de l\'hôte, la même pour tous)',
     'shell.pickGang': 'Choisir un gang…',
     'shell.gangTaken': '{gang} (prise)',
     'shell.sidesWith': 's\'allie à {gang}',
@@ -710,7 +716,8 @@ function wireFullscreenButton() {
   update();
 }
 
-function seedRegistry(Module) {
+// gameLang: the game's language (co-op: the host's, so every player's game shows the same text).
+function seedRegistry(Module, gameLang = currentLang()) {
   const setDword = Module.cwrap('gta2_port_reg_set_dword', null, ['string', 'string', 'number']);
   const setString = Module.cwrap('gta2_port_reg_set_string', null, ['string', 'string', 'string']);
   // Defaults for the browser: windowed 640x480 reference, no intro movie (Bink
@@ -738,7 +745,7 @@ function seedRegistry(Module) {
   // The web language is the single source of truth (the in-game Options screen
   // is not involved): written after the saved settings so it always wins. The
   // engine reads the first char of this string (text_0x14.cpp constructor).
-  setString(`${REG_ROOT}\\option`, 'language', gxtLetterFor(currentLang()));
+  setString(`${REG_ROOT}\\option`, 'language', gxtLetterFor(gameLang));
 }
 
 function saveRegistry(Module) {
@@ -879,7 +886,7 @@ function wireRadioKeys(Module, audio, coop, inCar) {
   return (e, down) => {
     const mod = e.metaKey || e.ctrlKey || e.altKey;
     if (e.code === 'KeyR' && !mod) {
-      if (down && !e.repeat && !inCar()) toast('The radio is in cars: get in one, then press R');
+      if (down && !e.repeat && !inCar()) toast(t('shell.radioNeedsCar'));
       else if (down && !e.repeat) {
         on = !on;
         audio.setRadio(on);
@@ -1209,8 +1216,10 @@ async function start(getFiles, { cacheAfterStart = false, coop = null, loadSlot 
     if (restored) console.log(`Restored ${restored} saved file(s)`);
     // The game's text: data/<letter>.gxt for the web language, generated from
     // e.gxt when the user's files do not ship it (before the engine loads it).
-    ensureGameLanguage(Module, currentLang());
-    seedRegistry(Module);
+    // Co-op: the host's language for everyone (lobby settings), whatever each player's page shows.
+    const gameLang = coop ? coop.lang : currentLang();
+    ensureGameLanguage(Module, gameLang);
+    seedRegistry(Module, gameLang);
     const handleKey = wireInput(Module, canvas);
     // Browsers start audio only after a user gesture (but not while the map screen pauses the game).
     let gamePaused = false;
@@ -1421,7 +1430,8 @@ $('folder').addEventListener('change', (e) => {
 });
 
 // A language change while the game runs switches the game's text live.
-initGameLanguage(setStatus);
+// In co-op the game keeps the host's language for the whole match; the page still switches.
+initGameLanguage(setStatus, () => !!(window.gta2 && window.gta2.coop));
 wireLangButton();
 
 const pageParams = new URLSearchParams(location.search);
@@ -1682,6 +1692,7 @@ function wireCoopLobby() {
     $('coop-ff').disabled = !host;
     for (const el of document.querySelectorAll('#coop [data-modes]')) el.hidden = !el.dataset.modes.split(' ').includes(s.mode);
     $('coop-mode-help').textContent = HELP[s.mode] || '';
+    $('coop-lang').textContent = t('shell.gameLang', { language: t(`ui.opt.lang.${LANGS.includes(s.lang) ? s.lang : 'en'}`) });
     // Gang Wars: crews and their sides
     const names = [...new Set([...crews.map((c) => c.name), ...known.map((c) => c.name)])];
     $('coop-crew-list').replaceChildren(...names.map((n) => Object.assign(document.createElement('option'), { value: n })));
@@ -1785,7 +1796,7 @@ function wireCoopLobby() {
         } catch (err) { setStatus(err.message, true); }
       },
     });
-    if (host && rematch && rematch.settings) lobby.setSettings(rematch.settings);
+    if (host && rematch && rematch.settings) lobby.setSettings({ ...rematch.settings, lang: currentLang() });
     lobby.code = code;
     window.gta2Lobby = lobby; // for tests
     pinger = setInterval(() => lobby.measurePings(), 2000);

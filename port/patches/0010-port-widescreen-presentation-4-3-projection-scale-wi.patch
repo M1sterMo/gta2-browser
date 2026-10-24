@@ -1,7 +1,7 @@
 From 0c1a632c6d37603fd01c674ddcea2b5bc865fde1 Mon Sep 17 00:00:00 2001
 From: GTA2 port <port@localhost>
 Date: Tue, 13 Oct 2026 11:48:49 +1100
-Subject: [PATCH 10/24] port: widescreen presentation (4:3 projection scale,
+Subject: [PATCH 10/25] port: widescreen presentation (4:3 projection scale,
  wider tile and sprite ranges, centred HUD box, optional activation margin)
 
 ---

@@ -1,7 +1,7 @@
 From 760292984aac233e035029b68b0509e1d8584b3b Mon Sep 17 00:00:00 2001
 From: GTA2 port <port@localhost>
 Date: Tue, 13 Oct 2026 11:31:02 +1100
-Subject: [PATCH 09/24] port: rescan for the music CD after the game files are
+Subject: [PATCH 09/25] port: rescan for the music CD after the game files are
  mounted
 
 ---

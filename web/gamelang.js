@@ -19,14 +19,17 @@ registerDict({
   en: {
     'game.languageChanged': 'Game language: {language}',
     'game.languageFailed': 'Could not change the game language: {message}',
+    'game.languageHost': 'The page is now in English; in co-op the game keeps the host\'s language until the match ends.',
   },
   es: {
     'game.languageChanged': 'Idioma del juego: {language}',
     'game.languageFailed': 'No se pudo cambiar el idioma del juego: {message}',
+    'game.languageHost': 'La página está ahora en español; en cooperativo el juego mantiene el idioma del anfitrión hasta el final de la partida.',
   },
   fr: {
     'game.languageChanged': 'Langue du jeu : {language}',
     'game.languageFailed': 'Impossible de changer la langue du jeu : {message}',
+    'game.languageHost': 'La page est maintenant en français ; en coopération, le jeu garde la langue de l\'hôte jusqu\'à la fin de la partie.',
   },
 });
 
@@ -66,10 +69,12 @@ export function applyGameLanguage(Module, code) {
  * text; before boot (or when it is not running) it simply takes effect at the
  * next start. `notify` (optional) shows a message, e.g. the shell's status.
  */
-export function initGameLanguage(notify = null) {
+export function initGameLanguage(notify = null, locked = () => false) {
   onLangChange((code) => {
     const Module = typeof window !== 'undefined' && window.gta2 ? window.gta2.Module : null;
     if (!Module) return;
+    // co-op: every player's game shows the host's language; only the page follows this player
+    if (locked()) { if (notify) notify(t('game.languageHost')); return; }
     try {
       if (!applyGameLanguage(Module, code)) return;
       if (notify) notify(t('game.languageChanged', { language: LANG_NAMES[code] || code }));

@@ -1,7 +1,7 @@
 From 3b753db9c3c32a1ab66fb5a7b2fbef8552614973 Mon Sep 17 00:00:00 2001
 From: GTA2 port <port@localhost>
 Date: Tue, 13 Oct 2026 20:03:37 +1100
-Subject: [PATCH 17/24] port: co-op network games in a browser (D20): resumable
+Subject: [PATCH 17/25] port: co-op network games in a browser (D20): resumable
  input exchange, input delay, yield while waiting, match end to the shell,
  sync diagnostics
 

@@ -376,6 +376,22 @@ the camera sit part-way between the last two updates (`Source/port_interpolation
     machines.
   - Controls are WASD (arrow keys are not bound).
 
+## Languages (PR #5 by LuisIntralix, merged 2026-10-24)
+
+**What it covers:** English, Spanish and French, for the page and for the game's own text.
+- **Spanish:** the freeware ships Rockstar's own `s.gxt`, so Spanish is the complete official translation.
+- **French:** `data/f.gxt` is generated in the browser from the player's `e.gxt` plus the PR's translation table (`web/gxt-translations.js`, 205 keys). Mission briefs stay in English.
+- **Switching:** a change applies live (`gta2_port_set_language`).
+
+**Accented letters:** GXT text stores them as the game font's codes, not Latin-1 (Rockstar's `s.gxt` has 166 for ó). The generator converts the translations with the engine's own table (`kExtendedWesternCharMap`, `toFontCodes` in `web/gxtgen.js`); without it, É showed as I.
+
+**Co-op uses the host's language:**
+- The host's language is a match setting (`settings.lang`), shown in the lobby. Every player's game starts with it, so all games show the same text.
+- A player can still change their own page language mid-match; the game keeps the host's language and a message says so.
+- **Tested** with two tabs: host page in French, guest page in English.
+  - Both games ran in French and 1,024 ticks of ped/car hashes matched.
+  - After the guest switched their page to Spanish mid-match, the next 1,024 ticks matched too.
+
 ## Co-op modes (Gang Wars, free-for-all)
 
 The host picks a mode in the lobby. Limits are typed in by the host; 0 means none, and the
@@ -598,6 +614,11 @@ Developer options (append to the URL, local only):
 The shell seeds these into the game's `Control` registry key at start-up. The original
 defaults stay in `gDefaultControls_61A9E4`. Menus keep their hard-coded keys: arrows, Enter, Esc.
 The change was requested because Ctrl and Alt clash with macOS and browser shortcuts.
+
+**Quitting needs ENTER twice** (patch 0025):
+- **Why:** the original asks "Is that it?" on ESC and quits on ENTER, and ENTER is also the browser version's get-in-a-car key. The menus also came back within a frame of the game ending, so the same ENTER chose the highlighted "replay previous area" and the level restarted.
+- **Asking:** the first ENTER now shows "ARE YOU SURE?" (the game's own text, key `sure`, in every language), the second quits, ESC resumes. The state is kept per player, so co-op games stay identical.
+- **Held keys:** the frontend treats a key still held from the game (or tapped since the game last read the keyboard, `Gta2Port_KeyHeld`) as held until released. Other keys start up, so the first press at the title screen still counts.
 
 **Changing keys: the Controls screen** (`web/controls.js`, issue #2 on M1sterMo/gta2-browser).
 - **Opening it.** In the original game, Options on the main menu launched the separate GTA2 Manager program and minimised the game. The browser has no such program, so the game used to exit with "Failed to launch 'GTA2 Manager' correctly". Patch 0024 makes `Start_GTA2Manager_5E4DE0` call `Gta2Port_OpenOptions` instead (`port/platform/options_web.cpp`), and the menu stays where it is. The toolbar's Controls button opens the same screen.

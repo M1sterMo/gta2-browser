@@ -1,7 +1,7 @@
 From c5d9f307f88c203e53164b6d48d7460f86a07e1d Mon Sep 17 00:00:00 2001
 From: GTA2 port <port@localhost>
 Date: Tue, 13 Oct 2026 12:41:22 +1100
-Subject: [PATCH 12/24] port: restore original data tables the source leaves
+Subject: [PATCH 12/25] port: restore original data tables the source leaves
  zero (stereo pan curve, AI horn patterns, trailer hitch offsets)
 
 ---

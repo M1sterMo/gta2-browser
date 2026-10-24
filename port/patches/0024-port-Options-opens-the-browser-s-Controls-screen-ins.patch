@@ -1,7 +1,7 @@
 From 758e94981301b9fc6fee3738306a78438b50423e Mon Sep 17 00:00:00 2001
 From: GTA2 port <port@localhost>
 Date: Wed, 21 Oct 2026 15:02:21 +1100
-Subject: [PATCH 24/24] port: Options opens the browser's Controls screen
+Subject: [PATCH 24/25] port: Options opens the browser's Controls screen
  instead of launching GTA2 Manager (the game no longer exits)
 
 ---

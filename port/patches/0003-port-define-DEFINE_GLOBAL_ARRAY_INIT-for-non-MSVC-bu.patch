@@ -1,7 +1,7 @@
 From d777dacfdccc07877c150556eae72798fe68fcac Mon Sep 17 00:00:00 2001
 From: GTA2 port <port@localhost>
 Date: Tue, 13 Oct 2026 10:13:18 +1100
-Subject: [PATCH 03/24] port: define DEFINE_GLOBAL_ARRAY_INIT for non-MSVC
+Subject: [PATCH 03/25] port: define DEFINE_GLOBAL_ARRAY_INIT for non-MSVC
  builds
 
 ---

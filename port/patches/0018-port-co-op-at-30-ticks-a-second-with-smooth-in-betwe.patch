@@ -1,7 +1,7 @@
 From 6bec342d6428bd7ac8b6e99015f44baba6114e04 Mon Sep 17 00:00:00 2001
 From: GTA2 port <port@localhost>
 Date: Wed, 14 Oct 2026 10:39:21 +1100
-Subject: [PATCH 18/24] port: co-op at 30 ticks a second with smooth in-between
+Subject: [PATCH 18/25] port: co-op at 30 ticks a second with smooth in-between
  drawing; drift-free tick schedule
 
 ---

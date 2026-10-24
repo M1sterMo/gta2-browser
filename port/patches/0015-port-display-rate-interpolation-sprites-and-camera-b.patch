@@ -1,7 +1,7 @@
 From 5f2d773478fe04b6821920e5132260e496c8dcd5 Mon Sep 17 00:00:00 2001
 From: GTA2 port <port@localhost>
 Date: Tue, 13 Oct 2026 17:10:06 +1100
-Subject: [PATCH 15/24] port: display-rate interpolation (sprites and camera
+Subject: [PATCH 15/25] port: display-rate interpolation (sprites and camera
  between 30 Hz updates; HUD replay; simulation state restored)
 
 ---

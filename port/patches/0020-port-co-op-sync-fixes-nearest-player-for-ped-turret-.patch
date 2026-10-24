@@ -1,7 +1,7 @@
 From 42ef4af1ae346a5e487683c997dbfdbf311bc20e Mon Sep 17 00:00:00 2001
 From: GTA2 port <port@localhost>
 Date: Wed, 14 Oct 2026 11:23:42 +1100
-Subject: [PATCH 20/24] port: co-op sync fixes (nearest player for ped turret
+Subject: [PATCH 20/25] port: co-op sync fixes (nearest player for ped turret
  fire, roadblock removal and trains; the killing gang's own player for gang
  respect); the match continues when the host leaves
 

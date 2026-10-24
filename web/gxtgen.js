@@ -125,12 +125,35 @@ export function buildGxt(letter, entries) {
   return out;
 }
 
+// GXT text stores accented letters as the game font's own character codes, not Latin-1: Rockstar's
+// s.gxt has 166 for "ó" and 176 for "¡". The game draws those codes as they are, so Latin-1 text
+// (É is 201) came out as other letters. This is the engine's own Latin-1 -> font table
+// (text_0x14.cpp kExtendedWesternCharMap, used for typed names), for characters 128-255; 0 has no
+// glyph and becomes '?', as the engine does.
+const FONT_CODES = [
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 176, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 175, 128, 129, 130, 0, 131, 0, 132, 133, 134, 135, 136, 137, 138, 139,
+  140, 141, 0, 173, 142, 143, 144, 0, 145, 0, 0, 146, 147, 148, 149, 0, 0, 150, 151, 152, 153, 0, 154, 0, 155, 156,
+  157, 158, 159, 160, 161, 162, 163, 164, 0, 174, 165, 166, 167, 0, 168, 0, 0, 169, 170, 171, 172, 0, 0, 0,
+];
+
+/** Text as a GXT file stores it: characters above 127 become the font's codes. */
+export function toFontCodes(text) {
+  let out = '';
+  for (const ch of text) {
+    const c = ch.codePointAt(0);
+    out += c < 128 ? ch : String.fromCharCode((c < 256 && FONT_CODES[c - 128]) || 63);
+  }
+  return out;
+}
+
 /**
  * Copies a GXT file, replacing the text of the keys the translation table
  * covers; every other key keeps its original text (English fallback).
  */
 export function translateGxt(bytes, letter, translations) {
   const { entries } = parseGxt(bytes);
-  const out = entries.map(({ key, text }) => ({ key, text: Object.hasOwn(translations, key) ? translations[key] : text }));
+  const out = entries.map(({ key, text }) => ({ key, text: Object.hasOwn(translations, key) ? toFontCodes(translations[key]) : text }));
   return buildGxt(letter, out);
 }

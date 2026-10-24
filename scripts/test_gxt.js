@@ -92,7 +92,7 @@ function assertLoaderShape(bytes, letter) {
 }
 
 async function main() {
-  const { parseGxt, buildGxt, translateGxt } = await loadModule('web/gxtgen.js');
+  const { parseGxt, buildGxt, translateGxt, toFontCodes } = await loadModule('web/gxtgen.js');
   const { GAME_TRANSLATIONS } = await loadModule('web/gxt-translations.js');
 
   // 1. build -> parse round trip
@@ -117,8 +117,11 @@ async function main() {
   assertLoaderShape(spanish, 's');
   const es = new Map(parseGxt(spanish).entries.map(({ key, text }) => [key, text]));
   assert.strictEqual(es.get('play'), 'JUGAR');
-  assert.strictEqual(es.get('mfail'), '¡TRABAJO FALLIDO!');
-  assert.strictEqual(es.get('pscore'), 'Puntuación objetivo: %d');
+  // accented letters are stored as the font's codes, as in Rockstar's own s.gxt (ó = 166, ¡ = 176)
+  assert.strictEqual(es.get('mfail'), toFontCodes('¡TRABAJO FALLIDO!'));
+  assert.strictEqual(es.get('mfail').charCodeAt(0), 176);
+  assert.strictEqual(es.get('pscore'), toFontCodes('Puntuación objetivo: %d'));
+  assert.strictEqual(es.get('pscore').charCodeAt(8), 166);
   assert.strictEqual(es.get('quit'), 'QUIT', 'untranslated key falls back to English');
   assert.strictEqual(es.get('zzz9'), 'NO TOCAR');
   assert.strictEqual(es.get('café'), 'Café crème');
@@ -127,7 +130,8 @@ async function main() {
   const french = translateGxt(built, 'f', { sure: 'TU ES SÛR ?' });
   assertLoaderShape(french, 'f');
   assert.strictEqual(parseGxt(french).letter, 'f');
-  assert.strictEqual(new Map(parseGxt(french).entries.map(({ key, text }) => [key, text])).get('sure'), 'TU ES SÛR ?');
+  assert.strictEqual(new Map(parseGxt(french).entries.map(({ key, text }) => [key, text])).get('sure'), toFontCodes('TU ES SÛR ?'));
+  assert.strictEqual(toFontCodes('É'), String.fromCharCode(135), 'É is the font\'s 135, not Latin-1 201');
 
   // 4. the real translation table: shape the engine and the fonts require
   const esKeys = Object.keys(GAME_TRANSLATIONS.es).sort();

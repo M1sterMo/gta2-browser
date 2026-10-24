@@ -24,7 +24,7 @@
 // catch games drifting apart), and chat {text}. Game messages
 // are binary and go straight to the core (gta2_port_net_receive).
 
-import { registerDict, t } from './strings.js';
+import { LANGS, lang, onLangChange, registerDict, t } from './strings.js';
 
 registerDict({
   en: {
@@ -263,8 +263,10 @@ export class CoopLobby {
     this.stats = { sent: 0, received: 0, early: 0 }; // game messages
     this.early = [];
     this.trace = [];
+    // lang: the game's language for the match, the host's (every player's game shows the same text)
     this.settings = {
       mode: 'roam', district: 'downtown', friendlyFire: false, minutes: 0, killLimit: 10, pointsTarget: 0, sides: {},
+      lang: lang(),
     };
     this.loaded = new Set(); // host: players whose game files are ready
     this.gone = new Set();   // players who left after the start
@@ -273,6 +275,8 @@ export class CoopLobby {
     transport.onPeerLeft = (id) => this.left(id);
     transport.onMessage = (from, data) => this.message(from, data);
     transport.join();
+    // the host's language follows the host's page until the match starts
+    if (host) onLangChange((code) => { if (!this.started) this.setSettings({ lang: code }); });
   }
 
   message(from, data) {
@@ -432,6 +436,7 @@ export class CoopLobby {
   }
 
   begin(match) {
+    match.lang = LANGS.includes(match.lang) ? match.lang : 'en'; // the same fallback for everyone
     this.started = true;
     this.players = match.players;
     this.slots = Object.fromEntries(match.players.map((p, i) => [p.id, i]));

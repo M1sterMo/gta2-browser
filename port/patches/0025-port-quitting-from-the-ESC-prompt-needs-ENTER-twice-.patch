@@ -1,0 +1,112 @@
+From 422a8090f8534f9ce90a76e79ff97dd9160f3d02 Mon Sep 17 00:00:00 2001
+From: GTA2 port <port@localhost>
+Date: Sat, 24 Oct 2026 11:32:10 +1100
+Subject: [PATCH 25/25] port: quitting from the ESC prompt needs ENTER twice
+ (the first asks ARE YOU SURE?), per player; the menus treat a key still held
+ from the game as held until released, so the ENTER that quits no longer also
+ replays the area
+
+---
+ Source/Frontend.cpp | 17 +++++++++++++++++
+ Source/Hud.cpp      | 30 ++++++++++++++++++++++++++++++
+ 2 files changed, 47 insertions(+)
+
+diff --git a/Source/Frontend.cpp b/Source/Frontend.cpp
+index d795ddf..6f5094a 100644
+--- a/Source/Frontend.cpp
++++ b/Source/Frontend.cpp
+@@ -3257,6 +3257,10 @@ void Frontend::Load_tga_4B6520(u16 idx)
+ }
+ 
+ // https://decomp.me/scratch/MuqZh
++#ifdef GTA2_PORT
++extern "C" int Gta2Port_KeyHeld(int scancode); // dinput_web.cpp
++#endif
++
+ MATCH_FUNC(0x4AF2A0)
+ Frontend::Frontend()
+ {
+@@ -3315,6 +3319,19 @@ Frontend::Frontend()
+     field_C9D7_return_key_down = 0;
+     field_C9D8_escape_key_down = 0;
+     field_C9D9_delete_key_down = 0;
++#ifdef GTA2_PORT
++    // A key that is still down (or was tapped since the game last read the keyboard) counts as
++    // held until it is released. In the browser the menus come back within a frame of the game
++    // ending, so the ENTER that quit play also chose the highlighted "replay previous area" and
++    // the level restarted at once. Keys that are up start up, so the first press always counts.
++    field_C9D5_up_key_down = Gta2Port_KeyHeld(DIK_UP);
++    field_C9D6_down_key_down = Gta2Port_KeyHeld(DIK_DOWN);
++    field_C9D3_left_key_down = Gta2Port_KeyHeld(DIK_LEFT);
++    field_C9D4_right_key_down = Gta2Port_KeyHeld(DIK_RIGHT);
++    field_C9D7_return_key_down = Gta2Port_KeyHeld(DIK_RETURN);
++    field_C9D8_escape_key_down = Gta2Port_KeyHeld(DIK_ESCAPE);
++    field_C9D9_delete_key_down = Gta2Port_KeyHeld(DIK_DELETE);
++#endif
+     field_10C_bKeyboardAcquired = 0;
+     field_108_winmain_next_state = Run_Frontend_2;
+     field_C9E1_bCheatsEnabled = 0;
+diff --git a/Source/Hud.cpp b/Source/Hud.cpp
+index 165576b..52091e4 100644
+--- a/Source/Hud.cpp
++++ b/Source/Hud.cpp
+@@ -1314,11 +1314,30 @@ void Hud_Arrow_7C_Array::CreatePlayerArrows_5D1350()
+     }
+ }
+ 
++#ifdef GTA2_PORT
++// Quitting needs ENTER twice: the browser version's ENTER also gets in and out of cars, so a
++// stray ESC then ENTER ended the game. The first ENTER asks "ARE YOU SURE?" (the game's own
++// text, key "sure"). Kept per player: in co-op every machine processes every player's keys.
++static bool sPortQuitArmed[6];
++#endif
++
+ MATCH_FUNC(0x5d13c0)
+ bool Hud_QuitMessage_1::IsOnQuitMessage_5D13C0(s32 action, Player* pPlayer)
+ {
+     if (pPlayer->field_78A_show_quit_message)
+     {
++#ifdef GTA2_PORT
++        const u8 portIdx = pPlayer->get_idx_4219D0();
++        if (action == DIK_RETURN && portIdx < 6 && !sPortQuitArmed[portIdx])
++        {
++            sPortQuitArmed[portIdx] = true;
++            return true;
++        }
++        if (portIdx < 6)
++        {
++            sPortQuitArmed[portIdx] = false;
++        }
++#endif
+         if (action == DIK_RETURN)
+         {
+             pPlayer->field_78A_show_quit_message = false;
+@@ -1350,7 +1369,12 @@ void Hud_QuitMessage_1::DrawQuitMessage_5D1430()
+ {
+     if (gGame_0x40_67E008->field_38_orf1->field_78A_show_quit_message)
+     {
++#ifdef GTA2_PORT
++        const u8 portIdx = gGame_0x40_67E008->field_38_orf1->get_idx_4219D0();
++        wchar_t* pQuitText = gText_0x14_704DFC->Find_5B5F90(portIdx < 6 && sPortQuitArmed[portIdx] ? "sure" : "quit1");
++#else
+         wchar_t* pQuitText = gText_0x14_704DFC->Find_5B5F90("quit1");
++#endif
+ 
+         s32 max_text_width = Frontend::GetMaxTextWidth_5D8990(pQuitText, word_7064D8);
+         s32 line_spacing_added = CountLineSpacing_5D8940(pQuitText, word_7064D8);
+@@ -1379,6 +1403,12 @@ bool Hud_QuitMessage_1::IsQuitMessageKey_5D15A0(s32 action)
+ MATCH_FUNC(0x5d15d0)
+ void Hud_QuitMessage_1::ShowQuitMessage_5D15D0(Player* pPlayer)
+ {
++#ifdef GTA2_PORT
++    if (pPlayer->get_idx_4219D0() < 6)
++    {
++        sPortQuitArmed[pPlayer->get_idx_4219D0()] = false;
++    }
++#endif
+     pPlayer->field_78A_show_quit_message = 1;
+ }
+ 
+-- 
+2.53.0
+

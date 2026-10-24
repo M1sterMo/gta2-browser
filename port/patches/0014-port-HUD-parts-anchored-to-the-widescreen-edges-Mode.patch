@@ -1,7 +1,7 @@
 From 7e0c232296e204df1f6efb657982b000270c4a8d Mon Sep 17 00:00:00 2001
 From: GTA2 port <port@localhost>
 Date: Tue, 13 Oct 2026 15:47:30 +1100
-Subject: [PATCH 14/24] port: HUD parts anchored to the widescreen edges;
+Subject: [PATCH 14/25] port: HUD parts anchored to the widescreen edges;
  Modern camera 20% smoother
 
 ---

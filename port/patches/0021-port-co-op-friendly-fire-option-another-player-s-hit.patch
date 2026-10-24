@@ -1,7 +1,7 @@
 From bbaa20e63b6bdd72e291f54f6dc2385de8b48828 Mon Sep 17 00:00:00 2001
 From: GTA2 port <port@localhost>
 Date: Wed, 14 Oct 2026 11:48:43 +1100
-Subject: [PATCH 21/24] port: co-op friendly fire option (another player's hits
+Subject: [PATCH 21/25] port: co-op friendly fire option (another player's hits
  and kills are ignored when off); per-player death and arrest counts
 
 ---

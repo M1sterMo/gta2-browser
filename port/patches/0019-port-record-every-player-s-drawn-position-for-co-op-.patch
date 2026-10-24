@@ -1,7 +1,7 @@
 From 984b7db602f78e4fd9f6b38326394303cfa3b80c Mon Sep 17 00:00:00 2001
 From: GTA2 port <port@localhost>
 Date: Wed, 14 Oct 2026 10:44:41 +1100
-Subject: [PATCH 19/24] port: record every player's drawn position for co-op
+Subject: [PATCH 19/25] port: record every player's drawn position for co-op
  markers
 
 ---

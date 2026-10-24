@@ -1,7 +1,7 @@
 From c59f16226658d8a3dcdd5aa8f9099d88b8b88b64 Mon Sep 17 00:00:00 2001
 From: GTA2 port <port@localhost>
 Date: Tue, 13 Oct 2026 10:22:28 +1100
-Subject: [PATCH 07/24] port: run WinMain's message loop in per-frame slices
+Subject: [PATCH 07/25] port: run WinMain's message loop in per-frame slices
  (Gta2Port_RunLoopSlice)
 
 ---

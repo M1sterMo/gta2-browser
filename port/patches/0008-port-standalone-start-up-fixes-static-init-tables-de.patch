@@ -1,7 +1,7 @@
 From fa8d278544eded15b5352e5b3d3d9a19bdec8946 Mon Sep 17 00:00:00 2001
 From: GTA2 port <port@localhost>
 Date: Tue, 13 Oct 2026 10:58:49 +1100
-Subject: [PATCH 08/24] port: standalone start-up fixes (static-init tables,
+Subject: [PATCH 08/25] port: standalone start-up fixes (static-init tables,
  default controls, zeroed allocations, sprite traps)
 
 ---

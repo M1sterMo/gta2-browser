@@ -1,7 +1,7 @@
 From 16581184d6dfc688e2b6f1089309293f49739884 Mon Sep 17 00:00:00 2001
 From: GTA2 port <port@localhost>
 Date: Wed, 14 Oct 2026 13:14:32 +1100
-Subject: [PATCH 23/24] port: co-op riding together (enter a teammate's car as
+Subject: [PATCH 23/25] port: co-op riding together (enter a teammate's car as
  a passenger)
 
 ---
