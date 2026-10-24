@@ -16,13 +16,118 @@
 // core rebuild what lives in the browser (textures, sounds, clock; savestate_web.cpp). A snapshot
 // only fits the build that made it, so each one records a hash of gta2.wasm.
 
+import { lang, registerDict, t } from './strings.js';
+
 const DB_NAME = 'gta2-port-states';
 const STORE = 'states';
+
+registerDict({
+  en: {
+    'ui.save.quick': 'Quick save',
+    'ui.save.auto': 'Autosave',
+    'ui.save.slot': 'Slot {n}',
+    'ui.save.singlePlayerOnly': 'Saving works during a single-player game.',
+    'ui.save.jobDone': 'Job done',
+    'ui.save.frenzyPassed': 'Frenzy passed',
+    'ui.save.autosaved': '{what}: autosaved',
+    'ui.save.savedTo': 'Saved to {slot} · -{cost}',
+    'ui.save.couldNotSave': 'Could not save: {err}',
+    'ui.save.empty': '{slot} is empty.',
+    'ui.save.otherVersion': 'That save was made by a different version of the game.',
+    'ui.save.loaded': 'Loaded {slot}',
+    'ui.save.couldNotLoad': 'Could not load: {err}',
+    'ui.save.damaged': 'the save is damaged',
+    'ui.save.noMemory': 'not enough memory',
+    'ui.save.refused': 'the browser refused to store it',
+    'ui.save.buildId': 'the game build could not be read (HTTP {status})',
+    'ui.save.onFeet': 'You can save once you are back on your feet.',
+    'ui.save.wanted': 'Lose the cops first: no saving while you are wanted.',
+    'ui.save.onJob': 'Finish or fail the job first: no saving during a job.',
+    'ui.save.cooldown': 'One save every 2 minutes: next save in {left}.',
+    'ui.save.tooPoor': 'A save costs at least {min}. You have {cash}.',
+    'ui.district.bonus': 'Bonus level',
+    'ui.time.justNow': 'just now',
+    'ui.time.yesterday': 'yesterday',
+    'ui.time.minutesAgo': '{n} min ago',
+    'ui.time.hoursAgo': '{n} h ago',
+    'ui.time.minutes': '{n} min',
+    'ui.time.seconds': '{n} s',
+  },
+  es: {
+    'ui.save.quick': 'Guardado rápido',
+    'ui.save.auto': 'Guardado automático',
+    'ui.save.slot': 'Ranura {n}',
+    'ui.save.singlePlayerOnly': 'El guardado funciona durante una partida de un jugador.',
+    'ui.save.jobDone': 'Trabajo completado',
+    'ui.save.frenzyPassed': 'Frenesí superado',
+    'ui.save.autosaved': '{what}: guardado automáticamente',
+    'ui.save.savedTo': 'Guardado en {slot} · -{cost}',
+    'ui.save.couldNotSave': 'No se pudo guardar: {err}',
+    'ui.save.empty': '{slot} está vacía.',
+    'ui.save.otherVersion': 'Esa partida se guardó con otra versión del juego.',
+    'ui.save.loaded': 'Cargada {slot}',
+    'ui.save.couldNotLoad': 'No se pudo cargar: {err}',
+    'ui.save.damaged': 'la partida está dañada',
+    'ui.save.noMemory': 'no hay memoria suficiente',
+    'ui.save.refused': 'el navegador se negó a guardarla',
+    'ui.save.buildId': 'no se pudo leer la compilación del juego (HTTP {status})',
+    'ui.save.onFeet': 'Puedes guardar cuando vuelvas a estar en pie.',
+    'ui.save.wanted': 'Primero pierde a la policía: no se guarda mientras te buscan.',
+    'ui.save.onJob': 'Termina o falla el trabajo primero: no se guarda durante un trabajo.',
+    'ui.save.cooldown': 'Un guardado cada 2 minutos: el siguiente en {left}.',
+    'ui.save.tooPoor': 'Guardar cuesta al menos {min}. Tienes {cash}.',
+    'ui.district.bonus': 'Nivel extra',
+    'ui.time.justNow': 'ahora mismo',
+    'ui.time.yesterday': 'ayer',
+    'ui.time.minutesAgo': 'hace {n} min',
+    'ui.time.hoursAgo': 'hace {n} h',
+    'ui.time.minutes': '{n} min',
+    'ui.time.seconds': '{n} s',
+  },
+  fr: {
+    'ui.save.quick': 'Sauvegarde rapide',
+    'ui.save.auto': 'Sauvegarde automatique',
+    'ui.save.slot': 'Emplacement {n}',
+    'ui.save.singlePlayerOnly': 'La sauvegarde fonctionne pendant une partie solo.',
+    'ui.save.jobDone': 'Contrat accompli',
+    'ui.save.frenzyPassed': 'Frénésie réussie',
+    'ui.save.autosaved': '{what} : sauvegardé automatiquement',
+    'ui.save.savedTo': 'Sauvegardé dans {slot} · -{cost}',
+    'ui.save.couldNotSave': 'Impossible de sauvegarder : {err}',
+    'ui.save.empty': '{slot} est vide.',
+    'ui.save.otherVersion': 'Cette sauvegarde vient d’une autre version du jeu.',
+    'ui.save.loaded': '{slot} chargée',
+    'ui.save.couldNotLoad': 'Impossible de charger : {err}',
+    'ui.save.damaged': 'la sauvegarde est endommagée',
+    'ui.save.noMemory': 'pas assez de mémoire',
+    'ui.save.refused': 'le navigateur a refusé de l’enregistrer',
+    'ui.save.buildId': 'la compilation du jeu n’a pas pu être lue (HTTP {status})',
+    'ui.save.onFeet': 'Vous pourrez sauvegarder quand vous serez sur pied.',
+    'ui.save.wanted': 'Perdez la police d’abord : pas de sauvegarde pendant qu’on vous recherche.',
+    'ui.save.onJob': 'Terminez ou échouez le contrat d’abord : pas de sauvegarde pendant un contrat.',
+    'ui.save.cooldown': 'Une sauvegarde toutes les 2 minutes : la prochaine dans {left}.',
+    'ui.save.tooPoor': 'Une sauvegarde coûte au moins {min}. Vous avez {cash}.',
+    'ui.district.bonus': 'Niveau bonus',
+    'ui.time.justNow': 'à l’instant',
+    'ui.time.yesterday': 'hier',
+    'ui.time.minutesAgo': 'il y a {n} min',
+    'ui.time.hoursAgo': 'il y a {n} h',
+    'ui.time.minutes': '{n} min',
+    'ui.time.seconds': '{n} s',
+  },
+});
+
+/** Money as the current language writes it (USD, no cents). */
+export const money = (n) =>
+  new Intl.NumberFormat(lang(), { style: 'currency', currency: 'USD', currencyDisplay: 'narrowSymbol', maximumFractionDigits: 0 }).format(n);
+/** A plain number in the current language. */
+export const num = (n) => new Intl.NumberFormat(lang()).format(n);
 
 /** The six slots the player saves to (the Saves screen also shows the autosave, and a quick save
  * made by an earlier version). */
 export const SLOTS = ['s1', 's2', 's3', 's4', 's5', 's6'];
-export const slotName = (slot) => (slot === 'quick' ? 'Quick save' : slot === 'auto' ? 'Autosave' : `Slot ${slot.slice(1)}`);
+export const slotName = (slot) => (slot === 'quick' ? t('ui.save.quick')
+  : slot === 'auto' ? t('ui.save.auto') : t('ui.save.slot', { n: slot.slice(1) }));
 
 function promisify(request) {
   return new Promise((resolve, reject) => {
@@ -49,7 +154,7 @@ async function write(fn) {
   await new Promise((resolve, reject) => {
     tx.oncomplete = resolve;
     tx.onerror = () => reject(tx.error);
-    tx.onabort = () => reject(tx.error || new Error('the browser refused to store it'));
+    tx.onabort = () => reject(tx.error || new Error(t('ui.save.refused')));
   });
 }
 
@@ -63,7 +168,7 @@ let buildPromise = null;
 function buildId() {
   if (!buildPromise) {
     buildPromise = fetch(new URL('gta2.wasm', import.meta.url))
-      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`gta2.wasm: HTTP ${r.status}`))))
+      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(t('ui.save.buildId', { status: r.status })))))
       .then((buf) => crypto.subtle.digest('SHA-256', buf))
       .then((d) => Array.from(new Uint8Array(d).slice(0, 12), (b) => b.toString(16).padStart(2, '0')).join(''))
       .catch((err) => { buildPromise = null; throw err; });
@@ -147,7 +252,6 @@ export const LOAD_KEY = MAC ? '⌘O' : 'Ctrl+O';
 export const SAVE_MIN_COST = 10000;
 export const saveCost = (cash) => Math.max(SAVE_MIN_COST, Math.ceil(cash / 5));
 export const SAVE_COOLDOWN_MS = 2 * 60 * 1000;
-const money = (n) => `$${n.toLocaleString()}`;
 
 const until = async (ready, ms = 3000) => {
   for (const end = performance.now() + ms; !ready() && performance.now() < end;) await new Promise((r) => setTimeout(r, 20));
@@ -169,11 +273,13 @@ export function toast(text, isError = false) {
   toast.timer = setTimeout(() => { box.hidden = true; }, isError ? 4000 : 1800);
 }
 
-// The district from the map file the game loaded ("data\\wil.gmp" -> Downtown).
-const DISTRICT_OF = { wil: 'Downtown', ste: 'Residential', bil: 'Industrial' };
+// The district key from the map file the game loaded ("data\\wil.gmp" -> ui.district.downtown).
+// Stored as a key and translated at display time (saves.js describe), so old saves
+// follow a language change too.
+const DISTRICT_OF = { wil: 'ui.district.downtown', ste: 'ui.district.residential', bil: 'ui.district.industrial' };
 function districtOf(mapFile) {
   const base = mapFile.split(/[\\/]/).pop().toLowerCase().replace(/(-multi)?\.gmp$/, '');
-  return DISTRICT_OF[base] || (base ? 'Bonus level' : '');
+  return DISTRICT_OF[base] || (base ? 'ui.district.bonus' : '');
 }
 
 const titleCase = (s) => s.toLowerCase().replace(/(^|[\s-])\p{L}/gu, (m) => m.toUpperCase());
@@ -253,14 +359,16 @@ export class SaveStates {
    */
   whyNot({ free = false } = {}) {
     const { player, cash, stars, onJob } = this.rules();
-    if (!player) return 'You can save once you are back on your feet.';
-    if (stars > 0) return 'Lose the cops first: no saving while you are wanted.';
-    if (onJob) return 'Finish or fail the job first: no saving during a job.';
+    if (!player) return t('ui.save.onFeet');
+    if (stars > 0) return t('ui.save.wanted');
+    if (onJob) return t('ui.save.onJob');
     if (free) return null;
     const wait = Math.ceil((this.lastSaveAt + SAVE_COOLDOWN_MS - performance.now()) / 1000);
-    const left = wait >= 60 ? `${Math.floor(wait / 60)} min${wait % 60 ? ` ${wait % 60} s` : ''}` : `${wait} s`;
-    if (wait > 0) return `One save every 2 minutes: next save in ${left}.`;
-    if (cash < saveCost(cash)) return `A save costs at least ${money(SAVE_MIN_COST)}. You have ${money(cash)}.`;
+    const left = wait >= 60
+      ? t('ui.time.minutes', { n: num(Math.floor(wait / 60)) }) + (wait % 60 ? ` ${t('ui.time.seconds', { n: num(wait % 60) })}` : '')
+      : t('ui.time.seconds', { n: num(wait) });
+    if (wait > 0) return t('ui.save.cooldown', { left });
+    if (cash < saveCost(cash)) return t('ui.save.tooPoor', { min: money(SAVE_MIN_COST), cash: money(cash) });
     return null;
   }
 
@@ -305,7 +413,7 @@ export class SaveStates {
    */
   async save(slot, { picture = null, quiet = false, free = false, what = 'Job' } = {}) {
     if (this.busy) return false;
-    if (!this.canSave()) { if (!quiet) toast('Saving works during a single-player game.', true); return false; }
+    if (!this.canSave()) { if (!quiet) toast(t('ui.save.singlePlayerOnly'), true); return false; }
     this.busy = true;
     let paid = 0;
     try {
@@ -330,12 +438,15 @@ export class SaveStates {
       await write((store) => store.put({ slot, build, savedAt: Date.now(), size: end, clock, data, label, thumb }));
       console.log(`save ${slot}: ${(end / 1048576).toFixed(1)} MB -> ${(data.size / 1048576).toFixed(1)} MB in ${Math.round(performance.now() - started)} ms`);
       if (paid) this.lastSaveAt = performance.now();
-      if (!quiet) toast(free ? `${what === 'Frenzy' ? 'Frenzy passed' : 'Job done'}: autosaved` : `Saved to ${slotName(slot)} · -${money(paid)}`);
+      if (!quiet) {
+        const whatText = t(what === 'Frenzy' ? 'ui.save.frenzyPassed' : 'ui.save.jobDone');
+        toast(free ? t('ui.save.autosaved', { what: whatText }) : t('ui.save.savedTo', { slot: slotName(slot), cost: money(paid) }));
+      }
       return true;
     } catch (err) {
       console.error(err);
       if (paid) this.Module.ccall('gta2_port_savestate_pay', null, ['number'], [-paid]); // not stored: money back
-      toast(`Could not save: ${err.message || err}`, true);
+      toast(t('ui.save.couldNotSave', { err: err.message || err }), true);
       return false;
     } finally {
       this.busy = false;
@@ -350,14 +461,14 @@ export class SaveStates {
       const M = this.Module;
       const record = await get(slot);
       if (!record) {
-        toast(`${slotName(slot)} is empty.`, true);
+        toast(t('ui.save.empty', { slot: slotName(slot) }), true);
         return false;
       }
-      if (record.build !== await buildId()) { toast('That save was made by a different version of the game.', true); return false; }
+      if (record.build !== await buildId()) { toast(t('ui.save.otherVersion'), true); return false; }
       const bytes = await gunzip(record.data);
-      if (bytes.length !== record.size) throw new Error('the save is damaged');
+      if (bytes.length !== record.size) throw new Error(t('ui.save.damaged'));
       await until(() => !this.map.building);
-      if (!M.ccall('gta2_port_savestate_reserve', 'number', ['number'], [record.size])) throw new Error('not enough memory');
+      if (!M.ccall('gta2_port_savestate_reserve', 'number', ['number'], [record.size])) throw new Error(t('ui.save.noMemory'));
       // one synchronous step between frames: the game's memory becomes the saved one
       const heap = M.HEAPU8;
       heap.set(bytes, 0);
@@ -367,11 +478,11 @@ export class SaveStates {
       this.map.invalidate();
       this.passed = null; // the loaded game's count is the new baseline
       this.autosaveDue = null;
-      toast(`Loaded ${slotName(slot)}`);
+      toast(t('ui.save.loaded', { slot: slotName(slot) }));
       return true;
     } catch (err) {
       console.error(err);
-      toast(`Could not load: ${err.message || err}`, true);
+      toast(t('ui.save.couldNotLoad', { err: err.message || err }), true);
       return false;
     } finally {
       this.busy = false;

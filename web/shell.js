@@ -4,7 +4,7 @@
 // except the port itself, or local files in ?devdata=1 developer mode.
 import createGta2 from './gta2.js';
 import { SAVE_KEY, SaveStates, exportSaves, importSaves, listSaves, toast } from './savestate.js';
-import { SavesScreen, describe } from './saves.js';
+import { SavesScreen } from './saves.js';
 import { ControlsScreen } from './controls.js';
 import { Gta2Renderer } from './renderer.js';
 import { SaveStorage } from './storage.js';
@@ -16,6 +16,373 @@ import { count, initStats, startPlayClock } from './stats.js';
 import { CoopChat } from './chat.js';
 import { GamepadInput } from './gamepad.js';
 import { CoopLobby, DISTRICTS, GANGS, LocalTransport, MODES, ServerTransport, WebRtcTransport } from './net.js';
+import { LANGS, lang as currentLang, onLangChange, registerDict, setLang, t } from './strings.js';
+import { money } from './savestate.js';
+import { ensureGameLanguage, gxtLetterFor, initGameLanguage } from './gamelang.js';
+
+// The shell's own user-facing text, in the web languages (namespace shell.*).
+// Game text lives in data/*.gxt, translated by web/gxt-translations.js.
+registerDict({
+  en: {
+    'shell.crash': 'The game stopped with an error: {message}',
+    'shell.loginExpired': 'your login has expired. Open the invite link again, or enter the password',
+    'shell.serverStatus': 'the server answered {status}',
+    'shell.serverUnreachable': 'the game server could not be reached. Check your connection and reload',
+    'shell.downloadInterrupted': 'the download was interrupted. Check your connection and reload the page',
+    'shell.serverSendFailed': 'the server could not send {file} (error {status})',
+    'shell.readyProgress': 'Getting GTA2 ready… {done} of {total} MB',
+    'shell.loadingFiles': 'Loading game files… {done}/{total}',
+    'shell.notAnInstall': 'That folder is not a GTA2 installation. Missing: {missing}. ' +
+      'Pick the folder that contains the "data" folder.',
+    'shell.preparing': 'Preparing game files… {done}/{total}',
+    'shell.viewNormal': 'Normal',
+    'shell.viewFar': 'Far',
+    'shell.viewFarther': 'Farther',
+    'shell.viewFarthest': 'Farthest',
+    'shell.cameraModern': 'Camera: Modern',
+    'shell.cameraClassic': 'Camera: Classic',
+    'shell.viewLabel': 'View: {view}',
+    'shell.viewTitle': 'How much of the city you see (− / = keys)',
+    'shell.viewTitleDisabled': 'View distance needs the Modern camera',
+    'shell.mapDuringPlay': 'The map opens during play.',
+    'shell.minimap': 'Minimap',
+    'shell.minimapOff': 'Minimap off',
+    'shell.fps': '{fps} fps',
+    'shell.fpsWait': '… fps',
+    'shell.fullscreenUnavailable': 'Full screen is not available here ({message}).',
+    'shell.fullscreen': 'Full screen',
+    'shell.exitFullscreen': 'Exit full screen',
+    'shell.controllerConnected': 'Controller connected',
+    'shell.controllerUnsupported': 'This controller is not supported by the browser',
+    'shell.mute': 'Mute',
+    'shell.unmute': 'Unmute',
+    'shell.radioOn': 'Radio on',
+    'shell.radioOff': 'Radio off (R to turn it back on)',
+    'shell.imported': 'Imported {saves} game save file(s), {states} Saves-screen save(s) and map progress for ' +
+      '{districts} district(s). Reload the page to use them.',
+    'shell.caching': 'Saving your game files in this browser, so next time you can just press Play…',
+    'shell.cached': 'Game files saved in this browser ({mb} MB). Next time, press Play.',
+    'shell.cacheFailed': 'Could not keep the game files in this browser ({message}); ' +
+      'you will need to choose the folder again next time.',
+    'shell.playerN': 'Player {n}',
+    'shell.defaultName': 'Player',
+    'shell.gangWarWon': '{crew} win the Gang War!',
+    'shell.desync': 'The games have drifted apart (tick {tick}, with {player}): what you see may no longer match. ' +
+      'Start a new match to fix it.',
+    'shell.waitingFor': 'Waiting for {players}…',
+    'shell.you': '{name} (you)',
+    'shell.warsTied': 'Gang Wars: level',
+    'shell.warsLead': 'Gang Wars: {crew} leads with {points}',
+    'shell.warsWon': 'Gang Wars: {crew} won with {points}',
+    'shell.warsDraw': 'Gang Wars: a draw',
+    'shell.colCrewPlayer': 'Crew / player',
+    'shell.colPlayer': 'Player',
+    'shell.colKills': 'Kills',
+    'shell.colDeaths': 'Deaths',
+    'shell.colPoints': 'Points',
+    'shell.ffaLeadOne': 'Free-for-all: {name} leads with 1 kill',
+    'shell.ffaLeadMany': 'Free-for-all: {name} leads with {kills} kills',
+    'shell.ffaWonOne': 'Free-for-all: {name} won with 1 kill',
+    'shell.ffaWonMany': 'Free-for-all: {name} won with {kills} kills',
+    'shell.roamTitle': 'Free roam',
+    'shell.coopTitle': 'Co-op',
+    'shell.starting': 'Starting…',
+    'shell.gameMessage': '{caption}: {text}',
+    'shell.gameExited': 'The game exited (code {code}). Reload the page to play again.',
+    'shell.matchEnded': 'The match has ended. Back to the lobby…',
+    'shell.waitingLoad': 'Waiting for everyone to load…',
+    'shell.couldNotStart': 'Could not start (code {code}).',
+    'shell.savesTitle': 'Save (20% of your cash, at least $10,000) or load ({key} or F5)',
+    'shell.readingInstaller': 'Reading the installer…',
+    'shell.checkingInstaller': 'Checking the installer…',
+    'shell.unpacking': 'Unpacking GTA2 in this browser…',
+    'shell.checkingDownload': 'Checking the download…',
+    'shell.downloading': 'Downloading GTA2 from the Internet Archive… {done} / {total} MB',
+    'shell.downloadingSecs': 'Downloading GTA2 from the Internet Archive… {done} / {total} MB (about {secs} s left)',
+    'shell.downloadingMins': 'Downloading GTA2 from the Internet Archive… {done} / {total} MB (about {mins} min left)',
+    'shell.fromServer': 'Getting GTA2 from the game server…',
+    'shell.connectingArchive': 'Connecting to the Internet Archive…',
+    'shell.ready': 'GTA2 is ready.',
+    'shell.filesFailed': 'Could not get the game files: {message}. Press Play to try again.',
+    'shell.coopNeedFolder': 'Choose your GTA2 folder once on the normal start page first, then come back to co-op.',
+    'shell.crewReputation': 'Crew reputation: {list}',
+    'shell.crewRepRow': '{name} {delta} (now {reputation})',
+    'shell.crewRepShort': 'reputation {reputation}, {wins} wins',
+    'shell.newCrew': 'new crew',
+    'shell.playWithFriends': 'Play with friends',
+    'shell.helpRoam': 'Explore and cause trouble together. Friendly fire is your choice.',
+    'shell.helpWars': 'Crews fight crews. Each crew sides with one of the district\'s gangs: its members leave you ' +
+      'alone, the rival gangs hunt you. No friendly fire inside a crew. The crew with the most points wins.',
+    'shell.helpFfa': 'Everyone against everyone, GTA2\'s own frag game: first to the kill limit wins.',
+    'shell.tagHost': '(host)',
+    'shell.tagYou': '— you',
+    'shell.pickGang': 'Pick a gang…',
+    'shell.gangTaken': '{gang} (taken)',
+    'shell.sidesWith': 'sides with {gang}',
+    'shell.noGang': 'has not picked a gang',
+    'shell.leave': 'Leave',
+    'shell.join': 'Join',
+    'shell.noCrewYet': 'No crew yet: {players}. Join a crew above, or type a new crew name.',
+    'shell.roomHost': 'Room {code}: share the code. {count} of 6 players. Start when everyone is here.',
+    'shell.roomGuest': 'In room {code}. Waiting for the host to start.',
+    'shell.roomLooking': 'Looking for room {code}… Finding each other through the public trackers can take up to a minute.',
+    'shell.enterCode': 'Enter the room code you were given.',
+    'shell.connectFailed': 'Could not set up the connection: {message}',
+    'shell.startingMatch': 'Starting {mode} in {district} with {count} players…',
+    'shell.copied': 'Copied',
+    'shell.loadingFromComputer': 'Loading game files from this computer…',
+    'shell.loadingFromBrowser': 'Loading game files from this browser…',
+    'shell.savedInfo': 'Your GTA2 files are saved in this browser ({mb} MB).',
+    'shell.filesForgotten': 'Game files removed from this browser.',
+  },
+  es: {
+    'shell.crash': 'El juego se detuvo por un error: {message}',
+    'shell.loginExpired': 'tu sesión ha caducado. Abre de nuevo el enlace de invitación o escribe la contraseña',
+    'shell.serverStatus': 'el servidor respondió {status}',
+    'shell.serverUnreachable': 'no se pudo contactar con el servidor del juego. Comprueba tu conexión y recarga',
+    'shell.downloadInterrupted': 'la descarga se interrumpió. Comprueba tu conexión y recarga la página',
+    'shell.serverSendFailed': 'el servidor no pudo enviar {file} (error {status})',
+    'shell.readyProgress': 'Preparando GTA2… {done} de {total} MB',
+    'shell.loadingFiles': 'Cargando archivos del juego… {done}/{total}',
+    'shell.notAnInstall': 'Esa carpeta no es una instalación de GTA2. Faltan: {missing}. ' +
+      'Elige la carpeta que contiene la carpeta "data".',
+    'shell.preparing': 'Preparando los archivos del juego… {done}/{total}',
+    'shell.viewNormal': 'Normal',
+    'shell.viewFar': 'Lejos',
+    'shell.viewFarther': 'Más lejos',
+    'shell.viewFarthest': 'Lo más lejos',
+    'shell.cameraModern': 'Cámara: moderna',
+    'shell.cameraClassic': 'Cámara: clásica',
+    'shell.viewLabel': 'Vista: {view}',
+    'shell.viewTitle': 'Cuánta ciudad ves (teclas − / =)',
+    'shell.viewTitleDisabled': 'La distancia de vista necesita la cámara moderna',
+    'shell.mapDuringPlay': 'El mapa se abre durante la partida.',
+    'shell.minimap': 'Minimapa',
+    'shell.minimapOff': 'Sin minimapa',
+    'shell.fps': '{fps} fps',
+    'shell.fpsWait': '… fps',
+    'shell.fullscreenUnavailable': 'La pantalla completa no está disponible aquí ({message}).',
+    'shell.fullscreen': 'Pantalla completa',
+    'shell.exitFullscreen': 'Salir de pantalla completa',
+    'shell.controllerConnected': 'Mando conectado',
+    'shell.controllerUnsupported': 'Este mando no es compatible con el navegador',
+    'shell.mute': 'Silenciar',
+    'shell.unmute': 'Activar sonido',
+    'shell.radioOn': 'Radio encendida',
+    'shell.radioOff': 'Radio apagada (R para encenderla)',
+    'shell.imported': 'Se importaron {saves} partida(s) guardada(s), {states} guardado(s) de la pantalla Guardar ' +
+      'y progreso del mapa de {districts} distrito(s). Recarga la página para usarlos.',
+    'shell.caching': 'Guardando tus archivos de juego en este navegador, para que la próxima vez solo pulses Jugar…',
+    'shell.cached': 'Archivos de juego guardados en este navegador ({mb} MB). La próxima vez, pulsa Jugar.',
+    'shell.cacheFailed': 'No se pudieron guardar los archivos de juego en este navegador ({message}); ' +
+      'tendrás que elegir la carpeta de nuevo la próxima vez.',
+    'shell.playerN': 'Jugador {n}',
+    'shell.defaultName': 'Jugador',
+    'shell.gangWarWon': '¡{crew} gana la Guerra de bandas!',
+    'shell.desync': 'Las partidas se han desincronizado (tic {tick}, con {player}): lo que ves puede no coincidir. ' +
+      'Empieza otra partida para solucionarlo.',
+    'shell.waitingFor': 'Esperando a {players}…',
+    'shell.you': '{name} (tú)',
+    'shell.warsTied': 'Guerra de bandas: empate',
+    'shell.warsLead': 'Guerra de bandas: {crew} lidera con {points}',
+    'shell.warsWon': 'Guerra de bandas: {crew} ganó con {points}',
+    'shell.warsDraw': 'Guerra de bandas: empate',
+    'shell.colCrewPlayer': 'Clan / jugador',
+    'shell.colPlayer': 'Jugador',
+    'shell.colKills': 'Asesinatos',
+    'shell.colDeaths': 'Muertes',
+    'shell.colPoints': 'Puntos',
+    'shell.ffaLeadOne': 'Todos contra todos: {name} lidera con 1 asesinato',
+    'shell.ffaLeadMany': 'Todos contra todos: {name} lidera con {kills} asesinatos',
+    'shell.ffaWonOne': 'Todos contra todos: {name} ganó con 1 asesinato',
+    'shell.ffaWonMany': 'Todos contra todos: {name} ganó con {kills} asesinatos',
+    'shell.roamTitle': 'Recorrido libre',
+    'shell.coopTitle': 'Cooperativo',
+    'shell.starting': 'Empezando…',
+    'shell.gameMessage': '{caption}: {text}',
+    'shell.gameExited': 'El juego terminó (código {code}). Recarga la página para jugar de nuevo.',
+    'shell.matchEnded': 'La partida ha terminado. De vuelta a la sala…',
+    'shell.waitingLoad': 'Esperando a que todos carguen…',
+    'shell.couldNotStart': 'No se pudo empezar (código {code}).',
+    'shell.savesTitle': 'Guardar (20% de tu dinero, mínimo $10,000) o cargar ({key} o F5)',
+    'shell.readingInstaller': 'Leyendo el instalador…',
+    'shell.checkingInstaller': 'Comprobando el instalador…',
+    'shell.unpacking': 'Descomprimiendo GTA2 en este navegador…',
+    'shell.checkingDownload': 'Comprobando la descarga…',
+    'shell.downloading': 'Descargando GTA2 del Internet Archive… {done} / {total} MB',
+    'shell.downloadingSecs': 'Descargando GTA2 del Internet Archive… {done} / {total} MB (quedan unos {secs} s)',
+    'shell.downloadingMins': 'Descargando GTA2 del Internet Archive… {done} / {total} MB (quedan unos {mins} min)',
+    'shell.fromServer': 'Obteniendo GTA2 del servidor del juego…',
+    'shell.connectingArchive': 'Conectando con el Internet Archive…',
+    'shell.ready': 'GTA2 está listo.',
+    'shell.filesFailed': 'No se pudieron obtener los archivos del juego: {message}. Pulsa Jugar para intentarlo de nuevo.',
+    'shell.coopNeedFolder': 'Elige primero tu carpeta de GTA2 una vez en la página de inicio y vuelve al modo cooperativo.',
+    'shell.crewReputation': 'Reputación del clan: {list}',
+    'shell.crewRepRow': '{name} {delta} (ahora {reputation})',
+    'shell.crewRepShort': 'reputación {reputation}, {wins} victorias',
+    'shell.newCrew': 'clan nuevo',
+    'shell.playWithFriends': 'Jugar con amigos',
+    'shell.helpRoam': 'Explorar y causar problemas juntos. El fuego amigo es decisión tuya.',
+    'shell.helpWars': 'Clanes contra clanes. Cada clan se alía con una de las bandas del distrito: sus miembros ' +
+      'te dejan en paz, las bandas rivales te cazan. Sin fuego amigo dentro del clan. Gana el clan con más puntos.',
+    'shell.helpFfa': 'Todos contra todos, el modo clásico de GTA2: gana el primero que llegue al límite de asesinatos.',
+    'shell.tagHost': '(anfitrión)',
+    'shell.tagYou': '— tú',
+    'shell.pickGang': 'Elige una banda…',
+    'shell.gangTaken': '{gang} (ocupada)',
+    'shell.sidesWith': 'se alía con {gang}',
+    'shell.noGang': 'no ha elegido banda',
+    'shell.leave': 'Salir',
+    'shell.join': 'Unirse',
+    'shell.noCrewYet': 'Sin clan todavía: {players}. Únete a un clan arriba o escribe un nombre nuevo.',
+    'shell.roomHost': 'Sala {code}: comparte el código. {count} de 6 jugadores. Empieza cuando estén todos.',
+    'shell.roomGuest': 'En la sala {code}. Esperando a que el anfitrión empiece.',
+    'shell.roomLooking': 'Buscando la sala {code}… Encontrarse a través de los trackers públicos puede tardar un minuto.',
+    'shell.enterCode': 'Escribe el código de la sala que te dieron.',
+    'shell.connectFailed': 'No se pudo establecer la conexión: {message}',
+    'shell.startingMatch': 'Empezando {mode} en {district} con {count} jugadores…',
+    'shell.copied': 'Copiado',
+    'shell.loadingFromComputer': 'Cargando los archivos del juego de este ordenador…',
+    'shell.loadingFromBrowser': 'Cargando los archivos del juego de este navegador…',
+    'shell.savedInfo': 'Tus archivos de GTA2 están guardados en este navegador ({mb} MB).',
+    'shell.filesForgotten': 'Archivos de juego eliminados de este navegador.',
+  },
+  fr: {
+    'shell.crash': 'Le jeu s\'est arrêté à cause d\'une erreur : {message}',
+    'shell.loginExpired': 'votre session a expiré. Rouvrez le lien d\'invitation ou saisissez le mot de passe',
+    'shell.serverStatus': 'le serveur a répondu {status}',
+    'shell.serverUnreachable': 'impossible de joindre le serveur du jeu. Vérifiez votre connexion et rechargez',
+    'shell.downloadInterrupted': 'le téléchargement a été interrompu. Vérifiez votre connexion et rechargez la page',
+    'shell.serverSendFailed': 'le serveur n\'a pas pu envoyer {file} (erreur {status})',
+    'shell.readyProgress': 'Préparation de GTA2… {done} sur {total} Mo',
+    'shell.loadingFiles': 'Chargement des fichiers du jeu… {done}/{total}',
+    'shell.notAnInstall': 'Ce dossier n\'est pas une installation de GTA2. Il manque : {missing}. ' +
+      'Choisissez le dossier qui contient le dossier "data".',
+    'shell.preparing': 'Préparation des fichiers du jeu… {done}/{total}',
+    'shell.viewNormal': 'Normal',
+    'shell.viewFar': 'Loin',
+    'shell.viewFarther': 'Plus loin',
+    'shell.viewFarthest': 'Le plus loin',
+    'shell.cameraModern': 'Caméra : Moderne',
+    'shell.cameraClassic': 'Caméra : Classique',
+    'shell.viewLabel': 'Vue : {view}',
+    'shell.viewTitle': 'Combien de ville vous voyez (touches − / =)',
+    'shell.viewTitleDisabled': 'La distance de vue demande la caméra moderne',
+    'shell.mapDuringPlay': 'La carte s\'ouvre pendant la partie.',
+    'shell.minimap': 'Minicarte',
+    'shell.minimapOff': 'Minicarte désactivée',
+    'shell.fps': '{fps} fps',
+    'shell.fpsWait': '… fps',
+    'shell.fullscreenUnavailable': 'Le plein écran n\'est pas disponible ici ({message}).',
+    'shell.fullscreen': 'Plein écran',
+    'shell.exitFullscreen': 'Quitter le plein écran',
+    'shell.controllerConnected': 'Manette connectée',
+    'shell.controllerUnsupported': 'Cette manette n\'est pas prise en charge par le navigateur',
+    'shell.mute': 'Couper le son',
+    'shell.unmute': 'Rétablir le son',
+    'shell.radioOn': 'Radio allumée',
+    'shell.radioOff': 'Radio éteinte (R pour la rallumer)',
+    'shell.imported': '{saves} sauvegarde(s) de jeu, {states} sauvegarde(s) de l\'écran Sauvegardes et la progression ' +
+      'de la carte pour {districts} district(s) importés. Rechargez la page pour les utiliser.',
+    'shell.caching': 'Sauvegarde de vos fichiers de jeu dans ce navigateur, pour qu\'il suffise d\'appuyer sur Jouer ' +
+      'la prochaine fois…',
+    'shell.cached': 'Fichiers de jeu sauvegardés dans ce navigateur ({mb} Mo). La prochaine fois, appuyez sur Jouer.',
+    'shell.cacheFailed': 'Impossible de garder les fichiers de jeu dans ce navigateur ({message}); ' +
+      'il faudra choisir le dossier à nouveau la prochaine fois.',
+    'shell.playerN': 'Joueur {n}',
+    'shell.defaultName': 'Joueur',
+    'shell.gangWarWon': '{crew} remporte la Guerre de gangs !',
+    'shell.desync': 'Les parties se sont désynchronisées (tic {tick}, avec {player}) : ce que vous voyez peut ne plus ' +
+      'correspondre. Lancez une nouvelle partie pour corriger ça.',
+    'shell.waitingFor': 'En attente de {players}…',
+    'shell.you': '{name} (vous)',
+    'shell.warsTied': 'Guerre de gangs : égalité',
+    'shell.warsLead': 'Guerre de gangs : {crew} mène avec {points}',
+    'shell.warsWon': 'Guerre de gangs : {crew} a gagné avec {points}',
+    'shell.warsDraw': 'Guerre de gangs : match nul',
+    'shell.colCrewPlayer': 'Équipe / joueur',
+    'shell.colPlayer': 'Joueur',
+    'shell.colKills': 'Meurtres',
+    'shell.colDeaths': 'Morts',
+    'shell.colPoints': 'Points',
+    'shell.ffaLeadOne': 'Chacun pour soi : {name} mène avec 1 meurtre',
+    'shell.ffaLeadMany': 'Chacun pour soi : {name} mène avec {kills} meurtres',
+    'shell.ffaWonOne': 'Chacun pour soi : {name} a gagné avec 1 meurtre',
+    'shell.ffaWonMany': 'Chacun pour soi : {name} a gagné avec {kills} meurtres',
+    'shell.roamTitle': 'Balade libre',
+    'shell.coopTitle': 'Coopératif',
+    'shell.starting': 'Démarrage…',
+    'shell.gameMessage': '{caption} : {text}',
+    'shell.gameExited': 'Le jeu s\'est terminé (code {code}). Rechargez la page pour rejouer.',
+    'shell.matchEnded': 'La partie est terminée. Retour au salon…',
+    'shell.waitingLoad': 'En attente du chargement de tout le monde…',
+    'shell.couldNotStart': 'Impossible de démarrer (code {code}).',
+    'shell.savesTitle': 'Sauvegarder (20 % de votre argent, au moins 10 000 $) ou charger ({key} ou F5)',
+    'shell.readingInstaller': 'Lecture de l\'installateur…',
+    'shell.checkingInstaller': 'Vérification de l\'installateur…',
+    'shell.unpacking': 'Décompression de GTA2 dans ce navigateur…',
+    'shell.checkingDownload': 'Vérification du téléchargement…',
+    'shell.downloading': 'Téléchargement de GTA2 depuis l\'Internet Archive… {done} / {total} Mo',
+    'shell.downloadingSecs': 'Téléchargement de GTA2 depuis l\'Internet Archive… {done} / {total} Mo ' +
+      '(environ {secs} s restantes)',
+    'shell.downloadingMins': 'Téléchargement de GTA2 depuis l\'Internet Archive… {done} / {total} Mo ' +
+      '(environ {mins} min restantes)',
+    'shell.fromServer': 'Récupération de GTA2 depuis le serveur du jeu…',
+    'shell.connectingArchive': 'Connexion à l\'Internet Archive…',
+    'shell.ready': 'GTA2 est prêt.',
+    'shell.filesFailed': 'Impossible d\'obtenir les fichiers du jeu : {message}. Appuyez sur Jouer pour réessayer.',
+    'shell.coopNeedFolder': 'Choisissez d\'abord votre dossier GTA2 sur la page d\'accueil, puis revenez en coopératif.',
+    'shell.crewReputation': 'Réputation de l\'équipe : {list}',
+    'shell.crewRepRow': '{name} {delta} (maintenant {reputation})',
+    'shell.crewRepShort': 'réputation {reputation}, {wins} victoires',
+    'shell.newCrew': 'nouvelle équipe',
+    'shell.playWithFriends': 'Jouer avec des amis',
+    'shell.helpRoam': 'Explorez et semez le trouble ensemble. Le tir ami, c\'est vous qui choisissez.',
+    'shell.helpWars': 'Équipes contre équipes. Chaque équipe s\'allie à l\'un des gangs du district : ses membres ' +
+      'vous laissent tranquille, les gangs rivaux vous chassent. Pas de tir ami dans une équipe. L\'équipe avec le ' +
+      'plus de points gagne.',
+    'shell.helpFfa': 'Tout le monde contre tout le monde, le mode frag de GTA2 : le premier à atteindre la limite ' +
+      'de meurtres gagne.',
+    'shell.tagHost': '(hôte)',
+    'shell.tagYou': '— vous',
+    'shell.pickGang': 'Choisir un gang…',
+    'shell.gangTaken': '{gang} (prise)',
+    'shell.sidesWith': 's\'allie à {gang}',
+    'shell.noGang': 'n\'a pas choisi de gang',
+    'shell.leave': 'Quitter',
+    'shell.join': 'Rejoindre',
+    'shell.noCrewYet': 'Pas encore d\'équipe : {players}. Rejoignez une équipe ci-dessus ou saisissez un nouveau nom.',
+    'shell.roomHost': 'Salle {code} : partagez le code. {count} joueurs sur 6. Démarrez quand tout le monde est là.',
+    'shell.roomGuest': 'Dans la salle {code}. En attente du démarrage par l\'hôte.',
+    'shell.roomLooking': 'Recherche de la salle {code}… Se trouver via les trackers publics peut prendre une minute.',
+    'shell.enterCode': 'Saisissez le code de la salle qu\'on vous a donné.',
+    'shell.connectFailed': 'Impossible d\'établir la connexion : {message}',
+    'shell.startingMatch': 'Démarrage de {mode} dans {district} avec {count} joueurs…',
+    'shell.copied': 'Copié',
+    'shell.loadingFromComputer': 'Chargement des fichiers du jeu depuis cet ordinateur…',
+    'shell.loadingFromBrowser': 'Chargement des fichiers du jeu depuis ce navigateur…',
+    'shell.savedInfo': 'Vos fichiers GTA2 sont sauvegardés dans ce navigateur ({mb} Mo).',
+    'shell.filesForgotten': 'Fichiers de jeu supprimés de ce navigateur.',
+  },
+});
+
+// Stateful tool labels (Camera: Classic, Minimap off, …) carry no data-i18n: the
+// shell re-renders them on a language change instead (applyDom would reset them).
+const langRerenders = [];
+onLangChange(() => { for (const fn of langRerenders) fn(); });
+
+/** Language button in the tools bar: cycles English -> Español -> Français. */
+function wireLangButton() {
+  const button = $('lang-toggle');
+  const update = () => { button.textContent = t(`ui.opt.lang.${currentLang()}`); };
+  button.addEventListener('click', () => {
+    setLang(LANGS[(LANGS.indexOf(currentLang()) + 1) % LANGS.length]);
+    const screen = $('screen');
+    if (screen) screen.focus();
+  });
+  langRerenders.push(update);
+  update();
+}
 
 const GAME_DIR = '/gta2';
 // Minimum set for the first district; a full profile check is T07's job.
@@ -83,7 +450,7 @@ function logLine(t) {
 function recordError(err) {
   const text = (err && (err.stack || err.message)) || String(err);
   window.gta2Errors.push(text);
-  setStatus(`The game stopped with an error: ${String(err && err.message || err).slice(0, 160)}`, true);
+  setStatus(t('shell.crash', { message: String(err && err.message || err).slice(0, 160) }), true);
 }
 window.addEventListener('error', (e) => recordError(e.error || e.message));
 window.addEventListener('unhandledrejection', (e) => recordError(e.reason));
@@ -116,12 +483,12 @@ async function collectDevFiles(onProgress = (text) => setStatus(text)) {
   try {
     const res = await fetch('gamedata/manifest.json', { cache: 'no-store' });
     if (res.redirected && new URL(res.url).pathname === '/login') {
-      throw new Error('your login has expired. Open the invite link again, or enter the password');
+      throw new Error(t('shell.loginExpired'));
     }
     manifest = await res.json().catch(() => ({}));
-    if (!res.ok || manifest.error) throw new Error(manifest.error || `the server answered ${res.status}`);
+    if (!res.ok || manifest.error) throw new Error(manifest.error || t('shell.serverStatus', { status: res.status }));
   } catch (err) {
-    throw new Error(err instanceof TypeError ? 'the game server could not be reached. Check your connection and reload'
+    throw new Error(err instanceof TypeError ? t('shell.serverUnreachable')
       : err.message);
   }
   const list = Array.isArray(manifest) ? manifest.map((rel) => [rel, 0]) : manifest.files;
@@ -139,13 +506,14 @@ async function collectDevFiles(onProgress = (text) => setStatus(text)) {
       try {
         res = await fetch(`gamedata/${rel.split('/').map(encodeURIComponent).join('/')}`);
       } catch {
-        throw new Error('the download was interrupted. Check your connection and reload the page');
+        throw new Error(t('shell.downloadInterrupted'));
       }
-      if (!res.ok) throw new Error(`the server could not send ${rel} (error ${res.status})`);
+      if (!res.ok) throw new Error(t('shell.serverSendFailed', { file: rel, status: res.status }));
       files.set(rel.toLowerCase(), await res.blob());
       done++;
       bytes += size;
-      onProgress(total ? `Getting GTA2 ready… ${mb(bytes)} of ${mb(total)} MB` : `Loading game files… ${done}/${list.length}`, total ? bytes / total : done / list.length);
+      onProgress(total ? t('shell.readyProgress', { done: mb(bytes), total: mb(total) })
+        : t('shell.loadingFiles', { done, total: list.length }), total ? bytes / total : done / list.length);
     }
   };
   await Promise.all(Array.from({ length: 6 }, worker));
@@ -155,8 +523,7 @@ async function collectDevFiles(onProgress = (text) => setStatus(text)) {
 function validate(files) {
   const missing = REQUIRED.filter((p) => !files.has(p));
   if (missing.length) {
-    throw new Error(`That folder is not a GTA2 installation. Missing: ${missing.join(', ')}. ` +
-      'Pick the folder that contains the "data" folder.');
+    throw new Error(t('shell.notAnInstall', { missing: missing.join(', ') }));
   }
 }
 
@@ -168,7 +535,7 @@ async function writeFiles(Module, files) {
     const path = `${GAME_DIR}/${rel}`;
     FS.mkdirTree(path.slice(0, path.lastIndexOf('/')));
     FS.writeFile(path, new Uint8Array(await blob.arrayBuffer()));
-    if (++done % 25 === 0) setStatus(`Preparing game files… ${done}/${files.size}`);
+    if (++done % 25 === 0) setStatus(t('shell.preparing', { done, total: files.size }));
   }
 }
 
@@ -208,7 +575,7 @@ const CAMERA_KEY = 'gta2-port-camera';
 
 /** Camera: Modern / Classic button. ?camera=classic|modern sets it for this visit. */
 const VIEW_KEY = 'gta2-port-view-distance';
-const VIEWS = ['Normal', 'Far', 'Farther', 'Farthest'];
+const VIEW_KEYS = ['shell.viewNormal', 'shell.viewFar', 'shell.viewFarther', 'shell.viewFarthest'];
 
 /**
  * Camera: Modern / Classic button, and the view distance (Modern camera only):
@@ -232,10 +599,10 @@ function wireCameraButton(Module) {
   let modern = mode !== 'classic';
   const apply = () => {
     Module.ccall('gta2_port_set_camera', null, ['number', 'number'], [modern ? 1 : 0, bias]);
-    button.textContent = modern ? 'Camera: Modern' : 'Camera: Classic';
-    viewButton.textContent = `View: ${VIEWS[view]}`;
+    button.textContent = modern ? t('shell.cameraModern') : t('shell.cameraClassic');
+    viewButton.textContent = t('shell.viewLabel', { view: t(VIEW_KEYS[view]) });
     viewButton.disabled = !modern;
-    viewButton.title = modern ? 'How much of the city you see (− / = keys)' : 'View distance needs the Modern camera';
+    viewButton.title = modern ? t('shell.viewTitle') : t('shell.viewTitleDisabled');
   };
   const setView = (v) => {
     view = Math.max(0, Math.min(3, v));
@@ -249,7 +616,7 @@ function wireCameraButton(Module) {
     if (e.code !== 'Minus' && e.code !== 'Equal') return false;
     if (down && !e.repeat && modern) {
       setView(view + (e.code === 'Minus' ? 1 : -1));
-      setStatus(`View: ${VIEWS[view]}`);
+      setStatus(t('shell.viewLabel', { view: t(VIEW_KEYS[view]) }));
       clearTimeout(viewKeys.timer);
       viewKeys.timer = setTimeout(() => setStatus(''), 1200);
     }
@@ -261,20 +628,22 @@ function wireCameraButton(Module) {
     apply();
     $('screen').focus();
   });
+  langRerenders.push(apply);
   apply();
 }
 
 function wireMapButtons(map) {
   $('map-open').addEventListener('click', () => {
-    if (!map.open && !map.show()) setStatus('The map opens during play.');
+    if (!map.open && !map.show()) setStatus(t('shell.mapDuringPlay'));
     else if (map.open) map.close();
   });
   const mini = $('minimap-toggle');
   const apply = () => {
     mini.setAttribute('aria-pressed', String(map.minimapOn));
-    mini.textContent = map.minimapOn ? 'Minimap' : 'Minimap off';
+    mini.textContent = map.minimapOn ? t('shell.minimap') : t('shell.minimapOff');
   };
   mini.addEventListener('click', () => { map.setMinimap(!map.minimapOn); apply(); $('screen').focus(); });
+  langRerenders.push(apply);
   apply();
 }
 
@@ -293,7 +662,7 @@ function wireFpsButton(renderer) {
     const frames = renderer.stats.frames;
     const fps = ((frames - last.frames) * 1000) / Math.max(1, now - last.t);
     last = { t: now, frames };
-    out.textContent = `${fps.toFixed(0)} fps`;
+    out.textContent = t('shell.fps', { fps: fps.toFixed(0) });
   };
   const apply = () => {
     out.hidden = !shown;
@@ -301,7 +670,7 @@ function wireFpsButton(renderer) {
     clearInterval(timer);
     if (shown) {
       last = { t: performance.now(), frames: renderer.stats.frames };
-      out.textContent = '… fps';
+      out.textContent = t('shell.fpsWait');
       timer = setInterval(sample, 500);
     }
   };
@@ -330,13 +699,14 @@ function wireFullscreenButton() {
         if (navigator.keyboard && navigator.keyboard.lock) navigator.keyboard.lock(['Escape']).catch(() => {});
       }
     } catch (err) {
-      setStatus(`Full screen is not available here (${err.message || err}).`, true);
+      setStatus(t('shell.fullscreenUnavailable', { message: err.message || err }), true);
     }
     $('screen').focus();
   });
-  const update = () => { button.textContent = isFull() ? 'Exit full screen' : 'Full screen'; };
+  const update = () => { button.textContent = isFull() ? t('shell.exitFullscreen') : t('shell.fullscreen'); };
   document.addEventListener('fullscreenchange', update);
   document.addEventListener('webkitfullscreenchange', update);
+  langRerenders.push(update);
   update();
 }
 
@@ -365,6 +735,10 @@ function seedRegistry(Module) {
   } catch { /* storage unavailable: defaults only */ }
   // Never persisted: the movie stays off until video playback exists.
   setDword(`${REG_ROOT}\\screen`, 'do_play_movie', 0);
+  // The web language is the single source of truth (the in-game Options screen
+  // is not involved): written after the saved settings so it always wins. The
+  // engine reads the first char of this string (text_0x14.cpp constructor).
+  setString(`${REG_ROOT}\\option`, 'language', gxtLetterFor(currentLang()));
 }
 
 function saveRegistry(Module) {
@@ -418,7 +792,7 @@ function wireGamepad(handleKey, isPlaying, remap = (code) => code) {
   const gamepad = new GamepadInput({
     send,
     isPlaying,
-    onConnect: (pad) => toast(pad.mapping === 'standard' ? 'Controller connected' : 'This controller is not supported by the browser', pad.mapping !== 'standard'),
+    onConnect: (pad) => toast(pad.mapping === 'standard' ? t('shell.controllerConnected') : t('shell.controllerUnsupported'), pad.mapping !== 'standard'),
   });
   gamepad.start();
   return gamepad;
@@ -480,10 +854,11 @@ function wireAudioButton(audio) {
   try { muted = localStorage.getItem(MUTE_KEY) === '1'; } catch { /* storage unavailable */ }
   const apply = () => {
     audio.setMuted(muted);
-    button.textContent = muted ? 'Unmute' : 'Mute';
+    button.textContent = muted ? t('shell.unmute') : t('shell.mute');
     try { localStorage.setItem(MUTE_KEY, muted ? '1' : '0'); } catch { /* storage unavailable */ }
   };
   button.addEventListener('click', () => { muted = !muted; apply(); });
+  langRerenders.push(apply);
   apply();
 }
 
@@ -509,7 +884,7 @@ function wireRadioKeys(Module, audio, coop, inCar) {
         on = !on;
         audio.setRadio(on);
         try { localStorage.setItem(RADIO_KEY, on ? '1' : '0'); } catch { /* storage unavailable */ }
-        toast(on ? 'Radio on' : 'Radio off (R to turn it back on)');
+        toast(on ? t('shell.radioOn') : t('shell.radioOff'));
       }
       return true;
     }
@@ -542,8 +917,7 @@ function wireSaveButtons(storage) {
       const n = await storage.importAll(parsed);
       const states = await importSaves(parsed.states);
       const districts = importDiscovery(parsed.map);
-      setStatus(`Imported ${n} game save file(s), ${states} Saves-screen save(s) and map progress for ` +
-        `${districts} district(s). Reload the page to use them.`);
+      setStatus(t('shell.imported', { saves: n, states, districts }));
     } catch (err) {
       setStatus(err.message, true);
     }
@@ -555,12 +929,11 @@ const fileCache = new GameFileCache();
 /** After a successful start from a picked folder: keep the files for next time. */
 async function cachePickedFiles(files) {
   try {
-    setStatus('Saving your game files in this browser, so next time you can just press Play…');
+    setStatus(t('shell.caching'));
     const bytes = await fileCache.save(files);
-    setStatus(`Game files saved in this browser (${Math.round(bytes / 1048576)} MB). Next time, press Play.`);
+    setStatus(t('shell.cached', { mb: Math.round(bytes / 1048576) }));
   } catch (err) {
-    setStatus(`Could not keep the game files in this browser (${err.message || err}); ` +
-      'you will need to choose the folder again next time.', true);
+    setStatus(t('shell.cacheFailed', { message: err.message || err }), true);
   }
   setTimeout(() => setStatus(''), 6000);
 }
@@ -628,7 +1001,7 @@ function watchCoop(Module, coop) {
   const { lobby, players, mySlot } = coop;
   let won = null;
   const banner = $('coop-banner');
-  const name = (slot) => (players[slot] ? players[slot].name : `Player ${slot + 1}`);
+  const name = (slot) => (players[slot] ? players[slot].name : t('shell.playerN', { n: slot + 1 }));
   const history = Module.cwrap('gta2_dev_sync_history', 'number', []);
   const netDebug = Module.cwrap('gta2_port_net_debug', 'number', []);
   const EVERY = 90;
@@ -686,9 +1059,9 @@ function watchCoop(Module, coop) {
       }
     }
     let text = '';
-    if (won) text = `${won} win the Gang War!`;
-    else if (desync) text = `The games have drifted apart (tick ${desync.tick}, with ${name(desync.slot)}): what you see may no longer match. Start a new match to fix it.`;
-    else if (waiting.length) text = `Waiting for ${waiting.map(name).join(', ')}…`;
+    if (won) text = t('shell.gangWarWon', { crew: won });
+    else if (desync) text = t('shell.desync', { tick: desync.tick, player: name(desync.slot) });
+    else if (waiting.length) text = t('shell.waitingFor', { players: waiting.map(name).join(', ') });
     banner.textContent = text;
     banner.hidden = !text;
     banner.classList.toggle('error', !!desync);
@@ -718,7 +1091,7 @@ function coopView(Module, { lobby, players, mySlot, mode = 'roam', crews = [] })
     mode,
     waypoints,
     colour,
-    name: (slot) => (players[slot] ? players[slot].name : `Player ${slot + 1}`),
+    name: (slot) => (players[slot] ? players[slot].name : t('shell.playerN', { n: slot + 1 })),
     /** Every player in the match: position (blocks), heading, health, stats, crew. */
     players() {
       const p = read();
@@ -736,29 +1109,37 @@ function coopView(Module, { lobby, players, mySlot, mode = 'roam', crews = [] })
         };
       });
     },
-    /** The scoreboard and the end-of-match results: {title, columns, rows: [{cells, colour, strong}]}. */
+    /** The scoreboard and the end-of-match results: {title, endTitle, columns, rows: [{cells, colour, strong}]}. */
     standings() {
       const ps = view.players().filter((p) => p.inGame);
-      const money = (n) => `$${n.toLocaleString()}`;
-      const row = (p) => ({ cells: [p.me ? `${p.name} (you)` : p.name, p.kills, p.deaths, money(p.points)], colour: p.colour, strong: p.me });
+      const row = (p) => ({ cells: [p.me ? t('shell.you', { name: p.name }) : p.name, p.kills, p.deaths, money(p.points)], colour: p.colour, strong: p.me });
       if (mode === 'wars') {
         const totals = crews.map((c, i) => {
           const members = ps.filter((p) => p.crew === i);
           return { c, members, kills: members.reduce((n, p) => n + p.kills, 0), points: members.reduce((n, p) => n + p.points, 0) };
         }).sort((a, b) => b.points - a.points || b.kills - a.kills);
         const rows = [];
-        for (const t of totals) {
-          rows.push({ cells: [`${t.c.name} · ${t.c.gang}`, t.kills, '', money(t.points)], colour: t.c.colour, strong: true });
-          for (const p of t.members.sort((a, b) => b.points - a.points)) rows.push({ ...row(p), cells: [`  ${row(p).cells[0]}`, ...row(p).cells.slice(1)], strong: false });
+        for (const team of totals) {
+          rows.push({ cells: [`${team.c.name} · ${team.c.gang}`, team.kills, '', money(team.points)], colour: team.c.colour, strong: true });
+          for (const p of team.members.sort((a, b) => b.points - a.points)) rows.push({ ...row(p), cells: [`  ${row(p).cells[0]}`, ...row(p).cells.slice(1)], strong: false });
         }
         const lead = totals[0];
-        const tied = !lead || totals.filter((t) => t.points === lead.points).length > 1;
-        return { title: tied ? 'Gang Wars: level' : `Gang Wars: ${lead.c.name} leads with ${money(lead.points)}`, columns: ['Crew / player', 'Kills', 'Deaths', 'Points'], rows, leader: lead };
+        const tied = !lead || totals.filter((x) => x.points === lead.points).length > 1;
+        return {
+          title: tied ? t('shell.warsTied') : t('shell.warsLead', { crew: lead.c.name, points: money(lead.points) }),
+          endTitle: tied ? t('shell.warsDraw') : t('shell.warsWon', { crew: lead.c.name, points: money(lead.points) }),
+          columns: [t('shell.colCrewPlayer'), t('shell.colKills'), t('shell.colDeaths'), t('shell.colPoints')], rows, leader: lead,
+        };
       }
       const sorted = [...ps].sort(mode === 'ffa' ? (a, b) => b.kills - a.kills || b.points - a.points : (a, b) => b.points - a.points);
+      const lead = sorted[0];
+      const kills = lead ? lead.kills : 0;
       return {
-        title: mode === 'ffa' ? `Free-for-all: ${sorted[0] ? `${sorted[0].name} leads with ${sorted[0].kills} kill${sorted[0].kills === 1 ? '' : 's'}` : ''}` : 'Free roam',
-        columns: ['Player', 'Kills', 'Deaths', 'Points'], rows: sorted.map(row), leader: sorted[0],
+        title: mode === 'ffa' ? (kills === 1 ? t('shell.ffaLeadOne', { name: lead.name }) : t('shell.ffaLeadMany', { name: lead ? lead.name : '', kills }))
+          : t('shell.roamTitle'),
+        endTitle: mode === 'ffa' && lead ? (kills === 1 ? t('shell.ffaWonOne', { name: lead.name }) : t('shell.ffaWonMany', { name: lead.name, kills }))
+          : t('shell.roamTitle'),
+        columns: [t('shell.colPlayer'), t('shell.colKills'), t('shell.colDeaths'), t('shell.colPoints')], rows: sorted.map(row), leader: sorted[0],
       };
     },
     /** Gang Wars result for the server (saved crews): every crew, its members' stats, who won. */
@@ -781,7 +1162,7 @@ function coopView(Module, { lobby, players, mySlot, mode = 'roam', crews = [] })
 async function start(getFiles, { cacheAfterStart = false, coop = null, loadSlot = null } = {}) {
   const startOptions = { commandLine: coop ? '-N' : '' };
   $('picker').hidden = true;
-  setStatus('Starting…');
+  setStatus(t('shell.starting'));
   try {
     const canvas = $('screen');
     const renderer = new Gta2Renderer(canvas);
@@ -795,7 +1176,7 @@ async function start(getFiles, { cacheAfterStart = false, coop = null, loadSlot 
       gta2Storage: storage,
       gta2Audio: audio,
       fastLoop: new URLSearchParams(location.search).has('fastloop'),
-      onGameMessage: (caption, text) => setStatus(`${caption}: ${text}`, true),
+      onGameMessage: (caption, text) => setStatus(t('shell.gameMessage', { caption, text }), true),
       onAbort: (what) => recordError(what),
       onGameExit: (code) => {
         if (coop) {
@@ -804,16 +1185,16 @@ async function start(getFiles, { cacheAfterStart = false, coop = null, loadSlot 
             sessionStorage.setItem('gta2-coop-rematch', JSON.stringify({ code: coop.lobby.code, host: coop.lobby.host, settings: coop.lobby.settings }));
             if (coop.results) {
               const r = coop.results();
-              r.title = r.title.replace(' leads with ', ' won with ').replace(': level', ': a draw');
+              r.title = r.endTitle || r.title;
               sessionStorage.setItem('gta2-coop-results', JSON.stringify(r));
             }
           } catch { /* storage unavailable */ }
-          setStatus('The match has ended. Back to the lobby…');
+          setStatus(t('shell.matchEnded'));
           const back = () => { location.href = `${location.pathname}?coop${location.search.includes('local') ? '&local' : ''}#${coop.lobby.code}`; location.reload(); };
           reportMatch(coop).then(back, back);
           return;
         }
-        setStatus(`The game exited (code ${code}). Reload the page to play again.`);
+        setStatus(t('shell.gameExited', { code }));
       },
     });
     renderer.module = Module;
@@ -826,6 +1207,9 @@ async function start(getFiles, { cacheAfterStart = false, coop = null, loadSlot 
     await writeFiles(Module, files);
     const restored = await storage.restoreInto(Module.FS);
     if (restored) console.log(`Restored ${restored} saved file(s)`);
+    // The game's text: data/<letter>.gxt for the web language, generated from
+    // e.gxt when the user's files do not ship it (before the engine loads it).
+    ensureGameLanguage(Module, currentLang());
     seedRegistry(Module);
     const handleKey = wireInput(Module, canvas);
     // Browsers start audio only after a user gesture (but not while the map screen pauses the game).
@@ -854,12 +1238,12 @@ async function start(getFiles, { cacheAfterStart = false, coop = null, loadSlot 
     if (coop) {
       setupCoop(Module, coop);
       window.gta2.coop = coop;
-      setStatus('Waiting for everyone to load…');
+      setStatus(t('shell.waitingLoad'));
       await coop.lobby.allLoaded();
       setStatus('');
     }
     const rc = Module.ccall('gta2_start', 'number', ['string', 'string'], [GAME_DIR, startOptions.commandLine || '']);
-    if (rc < 0) setStatus(`Could not start (code ${rc}).`, true);
+    if (rc < 0) setStatus(t('shell.couldNotStart', { code: rc }), true);
     else {
       if (cacheAfterStart) setTimeout(() => cachePickedFiles(files), 3000);
       count(coop ? `play/coop-${coop.mode}` : 'play/solo');
@@ -893,7 +1277,7 @@ async function start(getFiles, { cacheAfterStart = false, coop = null, loadSlot 
     }
     const chat = coop ? new CoopChat({
       lobby: coop.lobby, mySlot: coop.mySlot, releaseKeys: releaseAll,
-      name: (slot) => (coop.players[slot] ? coop.players[slot].name : `Player ${slot + 1}`),
+      name: (slot) => (coop.players[slot] ? coop.players[slot].name : t('shell.playerN', { n: slot + 1 })),
       colour: (slot) => PLAYER_COLOURS[slot % PLAYER_COLOURS.length],
     }) : null;
     // Quick save and load (single player): a snapshot of the whole game.
@@ -902,7 +1286,9 @@ async function start(getFiles, { cacheAfterStart = false, coop = null, loadSlot 
     const saves = states ? new SavesScreen({ states, pause: pauseGame, onClose: () => canvas.focus() }) : null;
     window.gta2.states = states;
     if (states) {
-      $('saves-open').title = `Save (20% of your cash, at least $10,000) or load (${SAVE_KEY} or F5)`;
+      const savesTitle = () => { $('saves-open').title = t('shell.savesTitle', { key: SAVE_KEY }); };
+      savesTitle();
+      langRerenders.push(savesTitle);
       $('saves-open').addEventListener('click', () => saves.show());
       states.watchJobs();
       if (loadSlot) states.load(loadSlot); // Continue on the front page
@@ -993,9 +1379,9 @@ $('installer-file').addEventListener('change', async (e) => {
   if (!file) return;
   try {
     const files = await unpackInstallerFile(file, (stage) => {
-      if (stage === 'read') setStatus('Reading the installer…');
-      else if (stage === 'verify') setStatus('Checking the installer…');
-      else if (stage === 'unpack') setStatus('Unpacking GTA2 in this browser…');
+      if (stage === 'read') setStatus(t('shell.readingInstaller'));
+      else if (stage === 'verify') setStatus(t('shell.checkingInstaller'));
+      else if (stage === 'unpack') setStatus(t('shell.unpacking'));
     });
     validate(files);
     start(async () => files, { cacheAfterStart: true });
@@ -1014,10 +1400,12 @@ $('download-freeware').addEventListener('click', async (e) => {
       if (stage === 'download') {
         const rate = done / Math.max(1, (performance.now() - t0) / 1000);
         const left = rate > 0 ? Math.round((total - done) / rate) : 0;
-        setStatus(`Downloading GTA2 from the Internet Archive… ${mb(done)} / ${mb(total)} MB` +
-          (done > 1048576 ? ` (about ${left < 90 ? `${left} s` : `${Math.round(left / 60)} min`} left)` : ''));
-      } else if (stage === 'verify') setStatus('Checking the download…');
-      else if (stage === 'unpack') setStatus('Unpacking GTA2 in this browser…');
+        setStatus(done > 1048576
+          ? (left < 90 ? t('shell.downloadingSecs', { done: mb(done), total: mb(total), secs: left })
+            : t('shell.downloadingMins', { done: mb(done), total: mb(total), mins: Math.round(left / 60) }))
+          : t('shell.downloading', { done: mb(done), total: mb(total) }));
+      } else if (stage === 'verify') setStatus(t('shell.checkingDownload'));
+      else if (stage === 'unpack') setStatus(t('shell.unpacking'));
     });
     validate(files);
     start(async () => files, { cacheAfterStart: true });
@@ -1031,6 +1419,10 @@ $('folder').addEventListener('change', (e) => {
   const files = collectPickedFiles(e.target.files);
   start(async () => files, { cacheAfterStart: true });
 });
+
+// A language change while the game runs switches the game's text live.
+initGameLanguage(setStatus);
+wireLangButton();
 
 const pageParams = new URLSearchParams(location.search);
 let serverFiles = null; // serverGameFiles()
@@ -1073,17 +1465,17 @@ function serverGameFiles() {
       job.fromCache = true;
       return fileCache.load();
     }
-    show(onServer ? 'Getting GTA2 from the game server…' : 'Connecting to the Internet Archive…', 0);
+    show(onServer ? t('shell.fromServer') : t('shell.connectingArchive'), 0);
     // a static site: the freeware installer from the Internet Archive, unpacked in this browser
     const files = onServer ? await collectDevFiles(show) : await downloadFreeware(freewareProgress(show));
     if (!onServer) count('download/gta2');
-    show('GTA2 is ready.', 1);
+    show(t('shell.ready'), 1);
     return files;
   })();
   job.promise.catch((err) => {
     if (serverFiles === job) serverFiles = null; // the next Play starts a fresh attempt
     if (!onServer) count('download/failed', { title: String(err.message || err).slice(0, 200) });
-    const text = `Could not get the game files: ${String(err.message || err).replace(/\.$/, '')}. Press Play to try again.`;
+    const text = t('shell.filesFailed', { message: String(err.message || err).replace(/\.$/, '') });
     setStatus(text, true);
     landingProgress(text, 0, true);
   });
@@ -1098,10 +1490,12 @@ function freewareProgress(show) {
     if (stage === 'download') {
       const rate = done / Math.max(1, (performance.now() - t0) / 1000);
       const left = rate > 0 ? Math.round((total - done) / rate) : 0;
-      show(`Downloading GTA2 from the Internet Archive… ${mb(done)} of ${mb(total)} MB` +
-        (done > 1048576 ? ` (about ${left < 90 ? `${left} s` : `${Math.round(left / 60)} min`} left)` : ''), total ? done / total : 0);
-    } else if (stage === 'verify') show('Checking the download…', 1);
-    else if (stage === 'unpack') show('Unpacking GTA2 in this browser…', 1);
+      show(done > 1048576
+        ? (left < 90 ? t('shell.downloadingSecs', { done: mb(done), total: mb(total), secs: left })
+          : t('shell.downloadingMins', { done: mb(done), total: mb(total), mins: Math.round(left / 60) }))
+        : t('shell.downloading', { done: mb(done), total: mb(total) }), total ? done / total : 0);
+    } else if (stage === 'verify') show(t('shell.checkingDownload'), 1);
+    else if (stage === 'unpack') show(t('shell.unpacking'), 1);
   };
 }
 
@@ -1126,7 +1520,7 @@ async function wireServerHome() {
     starting = true;
     const buttons = document.querySelectorAll('[data-play]');
     for (const b of buttons) b.disabled = true;
-    setStatus('Starting…');
+    setStatus(t('shell.starting'));
     try {
       const loaded = await serverGameFiles().promise;
       hideLanding();
@@ -1144,7 +1538,7 @@ async function wireServerHome() {
   // Continue: the newest save this version of the game can load
   listSaves().then((all) => {
     const newest = all.find((s) => s.current);
-    if (newest) showContinue({ ...describe(newest), thumb: newest.thumb }, () => playNow(newest.slot));
+    if (newest) showContinue({ ...newest, thumb: newest.thumb }, () => playNow(newest.slot));
   });
 }
 
@@ -1156,7 +1550,7 @@ async function coopFiles() {
     if (res.ok) return collectDevFiles();
   } catch { /* no local game folder */ }
   if (await fileCache.info()) return fileCache.load();
-  throw new Error('Choose your GTA2 folder once on the normal start page first, then come back to co-op.');
+  throw new Error(t('shell.coopNeedFolder'));
 }
 
 /**
@@ -1213,7 +1607,10 @@ function showLastResults() {
   if (r.reputation) {
     const rep = document.createElement('p');
     rep.className = 'mode-help';
-    rep.textContent = 'Crew reputation: ' + r.reputation.map((c) => `${c.name} ${c.delta >= 0 ? '+' : ''}${c.delta} (now ${c.reputation})`).join(' · ');
+    rep.textContent = t('shell.crewReputation', {
+      list: r.reputation.map((c) => t('shell.crewRepRow',
+        { name: c.name, delta: `${c.delta >= 0 ? '+' : ''}${c.delta}`, reputation: c.reputation })).join(' · '),
+    });
     box.append(rep);
   }
   box.hidden = false;
@@ -1226,7 +1623,7 @@ function wireCoopLobby() {
   if (onSite) {
     // the landing page's bar, leading back to the front page (relative: a static site may live in a folder)
     $('topnav').hidden = false;
-    document.querySelector('#picker h1').textContent = 'Play with friends';
+    document.querySelector('#picker h1').textContent = t('shell.playWithFriends');
     for (const a of document.querySelectorAll('#topnav nav a')) a.href = `./${a.getAttribute('href')}`;
     for (const b of document.querySelectorAll('#topnav [data-play]')) b.addEventListener('click', () => { location.href = './'; });
   }
@@ -1251,10 +1648,9 @@ function wireCoopLobby() {
     if (lobby) lobby.setCrew(savedCrew);
   };
   const HELP = {
-    roam: 'Explore and cause trouble together. Friendly fire is your choice.',
-    wars: 'Crews fight crews. Each crew sides with one of the district\'s gangs: its members leave you alone, the rival gangs hunt you. ' +
-      'No friendly fire inside a crew. The crew with the most points wins.',
-    ffa: 'Everyone against everyone, GTA2\'s own frag game: first to the kill limit wins.',
+    roam: t('shell.helpRoam'),
+    wars: t('shell.helpWars'),
+    ffa: t('shell.helpFfa'),
   };
   const render = () => {
     const s = lobby ? lobby.settings : { mode: 'roam', district: 'downtown', friendlyFire: false, minutes: 0, killLimit: 10, pointsTarget: 0, sides: {} };
@@ -1263,7 +1659,8 @@ function wireCoopLobby() {
     const list = $('coop-players');
     list.replaceChildren(...(lobby ? lobby.players : []).map((p, i) => {
       const li = document.createElement('li');
-      li.textContent = `${p.name}${i === 0 ? ' (host)' : ''}${lobby && p.id === lobby.t.id ? ' — you' : ''}` +
+      li.textContent = p.name + (i === 0 ? ` ${t('shell.tagHost')}` : '') +
+        (lobby && p.id === lobby.t.id ? ` ${t('shell.tagYou')}` : '') +
         (p.ping ? ` · ${p.ping} ms` : '');
       const crew = s.mode === 'wars' && crews.find((c) => c.name === p.crew);
       if (crew) {
@@ -1303,28 +1700,28 @@ function wireCoopLobby() {
       const member = c.name === mine;
       if (member || host) {
         const pick = document.createElement('select');
-        pick.append(Object.assign(document.createElement('option'), { value: '', textContent: 'Pick a gang…' }));
+        pick.append(Object.assign(document.createElement('option'), { value: '', textContent: t('shell.pickGang') }));
         for (const [code, label] of GANGS[s.district] || []) {
           const held = taken.has(code) && c.side !== code;
-          pick.append(Object.assign(document.createElement('option'), { value: code, textContent: held ? `${label} (taken)` : label, disabled: held }));
+          pick.append(Object.assign(document.createElement('option'), { value: code, textContent: held ? t('shell.gangTaken', { gang: label }) : label, disabled: held }));
         }
         pick.value = c.side || '';
         pick.addEventListener('change', () => (member ? lobby.pickSide(pick.value) : lobby.setSettings({ sides: { ...lobby.settings.sides, [c.name]: pick.value || undefined } })));
         row.append(pick);
       } else {
         const gang = document.createElement('span');
-        gang.textContent = c.gang ? `sides with ${c.gang}` : 'has not picked a gang';
+        gang.textContent = c.gang ? t('shell.sidesWith', { gang: c.gang }) : t('shell.noGang');
         row.append(gang);
       }
       const who = document.createElement('span');
       who.className = 'who';
       const saved = known.find((k) => k.name.toLowerCase() === c.name.toLowerCase());
       who.textContent = lobby.players.filter((p) => p.crew === c.name).map((p) => p.name).join(', ') +
-        (saved ? ` · reputation ${saved.reputation}, ${saved.wins} wins` : ' · new crew');
+        (saved ? ` · ${t('shell.crewRepShort', { reputation: saved.reputation, wins: saved.wins })}` : ` · ${t('shell.newCrew')}`);
       row.append(who);
       const button = document.createElement('button');
       button.type = 'button';
-      button.textContent = member ? 'Leave' : 'Join';
+      button.textContent = member ? t('shell.leave') : t('shell.join');
       button.addEventListener('click', () => setCrew(member ? '' : c.name));
       row.append(button);
       return row;
@@ -1333,7 +1730,7 @@ function wireCoopLobby() {
     if (loners.length) {
       const note = document.createElement('p');
       note.className = 'mode-help';
-      note.textContent = `No crew yet: ${loners.join(', ')}. Join a crew above, or type a new crew name.`;
+      note.textContent = t('shell.noCrewYet', { players: loners.join(', ') });
       cards.push(note);
     }
     $('coop-crews').replaceChildren(...cards);
@@ -1352,16 +1749,16 @@ function wireCoopLobby() {
       $('coop-link').value = link.href;
     }
     $('coop-state').textContent = !lobby ? '' : lobby.host
-      ? `Room ${lobby.code}: share the code. ${lobby.players.length} of 6 players. Start when everyone is here.`
-      : lobby.players.length ? `In room ${lobby.code}. Waiting for the host to start.`
-        : `Looking for room ${lobby.code}… Finding each other through the public trackers can take up to a minute.`;
+      ? t('shell.roomHost', { code: lobby.code, count: lobby.players.length })
+      : lobby.players.length ? t('shell.roomGuest', { code: lobby.code })
+        : t('shell.roomLooking', { code: lobby.code });
   };
   const open = async (host) => {
-    const name = (nameInput.value || 'Player').trim().slice(0, 16);
+    const name = (nameInput.value || t('shell.defaultName')).trim().slice(0, 16);
     try { localStorage.setItem('gta2-port-coop-name', name); } catch { /* storage unavailable */ }
     const code = (host && rematch && rematch.host && rematch.code) || (host ? Math.random().toString(36).slice(2, 8).toUpperCase()
       : $('coop-code').value.trim().toUpperCase());
-    if (!code) { setStatus('Enter the room code you were given.', true); return; }
+    if (!code) { setStatus(t('shell.enterCode'), true); return; }
     for (const b of ['coop-host', 'coop-join']) $(b).disabled = true;
     if (onSite) serverGameFiles(); // the game files, while the room fills (a static site: from the Internet Archive)
     // ?coop&local: tabs of this browser only (BroadcastChannel), for testing
@@ -1371,7 +1768,7 @@ function wireCoopLobby() {
         : serverConfig && serverConfig.relay ? await ServerTransport.create(code, serverConfig.relay)
           : await WebRtcTransport.create(code);
     } catch (err) {
-      setStatus(`Could not set up the connection: ${err.message}`, true);
+      setStatus(t('shell.connectFailed', { message: err.message }), true);
       for (const b of ['coop-host', 'coop-join']) $(b).disabled = false;
       return;
     }
@@ -1379,7 +1776,9 @@ function wireCoopLobby() {
       name, host, onChange: render,
       onStart: async (match) => {
         clearInterval(pinger);
-        setStatus(`Starting ${MODES[match.mode] || 'co-op'} in ${DISTRICTS[match.district].label} with ${match.players.length} players…`);
+        setStatus(t('shell.startingMatch', {
+          mode: MODES[match.mode] || t('shell.coopTitle'), district: DISTRICTS[match.district].label, count: match.players.length,
+        }));
         try {
           const files = await coopFiles();
           start(async () => files, { coop: { lobby, ...match }, cacheAfterStart: needsCaching() });
@@ -1394,7 +1793,7 @@ function wireCoopLobby() {
     render();
   };
   $('coop-copy').addEventListener('click', () => {
-    navigator.clipboard.writeText($('coop-link').value).then(() => { $('coop-copy').textContent = 'Copied'; }, () => $('coop-link').select());
+    navigator.clipboard.writeText($('coop-link').value).then(() => { $('coop-copy').textContent = t('shell.copied'); }, () => $('coop-link').select());
   });
   // after a match: straight back into the same room, as host or guest
   let rematch = null;
@@ -1436,13 +1835,13 @@ async function autoStart() {
   try {
     const res = await fetch('gamedata/manifest.json', { cache: 'no-store' });
     if (res.ok) {
-      setStatus('Loading game files from this computer…');
+      setStatus(t('shell.loadingFromComputer'));
       start(collectDevFiles);
       return;
     }
   } catch { /* no local game folder */ }
   if (await fileCache.info()) {
-    setStatus('Loading game files from this browser…');
+    setStatus(t('shell.loadingFromBrowser'));
     start(() => fileCache.load());
   }
 }
@@ -1451,16 +1850,16 @@ async function autoStart() {
 function offerSavedFiles() {
   fileCache.info().then((info) => {
     if (!info) return;
-    $('saved-info').textContent = `Your GTA2 files are saved in this browser (${Math.round(info.bytes / 1048576)} MB).`;
+    $('saved-info').textContent = t('shell.savedInfo', { mb: Math.round(info.bytes / 1048576) });
     $('saved').hidden = false;
     $('play-saved').addEventListener('click', () => {
-      setStatus('Loading game files from this browser…');
+      setStatus(t('shell.loadingFromBrowser'));
       start(() => fileCache.load());
     });
     $('forget-files').addEventListener('click', async () => {
       await fileCache.forget();
       $('saved').hidden = true;
-      setStatus('Game files removed from this browser.');
+      setStatus(t('shell.filesForgotten'));
     });
   });
 }

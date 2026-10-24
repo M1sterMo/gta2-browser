@@ -4,6 +4,206 @@
 // downloaded. Read-only towards the game, apart from pausing it while the map
 // screen is open.
 
+import { lang, registerDict, t } from './strings.js';
+
+registerDict({
+  en: {
+    'ui.map.weapons.pistol': 'Pistol',
+    'ui.map.weapons.machineGun': 'Machine Gun',
+    'ui.map.weapons.rocketLauncher': 'Rocket Launcher',
+    'ui.map.weapons.electroGun': 'Electro Gun',
+    'ui.map.weapons.molotov': 'Molotov Cocktails',
+    'ui.map.weapons.grenades': 'Grenades',
+    'ui.map.weapons.shotgun': 'Shotgun',
+    'ui.map.weapons.electroBaton': 'Electro Baton',
+    'ui.map.weapons.flamethrower': 'Flamethrower',
+    'ui.map.weapons.silenced': 'Silenced Machine Gun',
+    'ui.map.weapons.dualPistol': 'Dual Pistol',
+    'ui.map.powerups.multiplier': 'Multiplier +1',
+    'ui.map.powerups.extraLife': 'Extra Life',
+    'ui.map.powerups.health': 'Health',
+    'ui.map.powerups.armour': 'Armour',
+    'ui.map.powerups.jailCard': 'Get Out of Jail Free',
+    'ui.map.powerups.copBribe': 'Cop Bribe',
+    'ui.map.powerups.invulnerability': 'Invulnerability',
+    'ui.map.powerups.doubleDamage': 'Double Damage',
+    'ui.map.powerups.fastReload': 'Fast Reload',
+    'ui.map.powerups.electroFingers': 'Electro Fingers',
+    'ui.map.powerups.respect': 'Respect',
+    'ui.map.powerups.invisibility': 'Invisibility',
+    'ui.map.powerups.instantGang': 'Instant Gang',
+    'ui.map.poi.save': 'Save points',
+    'ui.map.poi.garage': 'Garages',
+    'ui.map.poi.crusher': 'Car crushers',
+    'ui.map.poi.frenzy': 'Kill Frenzies',
+    'ui.map.poi.weapon': 'Weapons',
+    'ui.map.poi.powerup': 'Power-ups',
+    'ui.map.poi.token': 'Tokens',
+    'ui.map.police': 'Police',
+    'ui.map.jobs.easy': 'Easy job',
+    'ui.map.jobs.medium': 'Medium job',
+    'ui.map.jobs.hard': 'Hard job',
+    'ui.map.jobs.info': 'Info phone',
+    'ui.map.jobNamed': '{gang} {job}',
+    'ui.map.garage.machineGun': 'car machine gun',
+    'ui.map.garage.oilSlick': 'oil slick',
+    'ui.map.garage.mines': 'car mines',
+    'ui.map.garage.bomb': 'car bomb',
+    'ui.map.garage.respray': 'respray',
+    'ui.map.garageName': 'Garage: {services}',
+    'ui.map.frenzy': 'Kill Frenzy',
+    'ui.map.weaponN': 'Weapon {n}',
+    'ui.map.powerup': 'Power-up',
+    'ui.map.token': 'Token',
+    'ui.map.savePointChurch': 'Save point (church)',
+    'ui.map.carCrusher': 'Car crusher',
+    'ui.map.missionTarget': 'Mission target',
+    'ui.map.missionTargetsN': 'Mission targets ({n})',
+    'ui.map.drawing': 'Drawing the map…',
+    'ui.map.legend.showingAll': 'Showing everything',
+    'ui.map.legend.foundSoFar': 'Found so far',
+    'ui.map.legend.onMission': 'On a mission',
+    'ui.map.legend.gangJobs': 'Gang jobs (click to set a waypoint)',
+    'ui.map.legend.jobs': 'Jobs',
+    'ui.map.briefs.currentJob': 'Current job',
+    'ui.map.briefs.messages': 'Latest messages',
+    'ui.map.help.line': 'M / Esc close · drag or WASD move · wheel or Q/E zoom · click: waypoint · right-click: clear · Space: you · F: {mode}{dist}',
+    'ui.map.help.revealOn': 'show everything',
+    'ui.map.help.revealOff': 'only what you have seen',
+    'ui.map.help.waypointDist': ' · waypoint {n} blocks away',
+  },
+  es: {
+    'ui.map.weapons.pistol': 'Pistola',
+    'ui.map.weapons.machineGun': 'Ametralladora',
+    'ui.map.weapons.rocketLauncher': 'Lanzacohetes',
+    'ui.map.weapons.electroGun': 'Arma electro',
+    'ui.map.weapons.molotov': 'Cócteles molotov',
+    'ui.map.weapons.grenades': 'Granadas',
+    'ui.map.weapons.shotgun': 'Escopeta',
+    'ui.map.weapons.electroBaton': 'Porra eléctrica',
+    'ui.map.weapons.flamethrower': 'Lanzallamas',
+    'ui.map.weapons.silenced': 'Ametralladora con silenciador',
+    'ui.map.weapons.dualPistol': 'Pistola doble',
+    'ui.map.powerups.multiplier': 'Multiplicador +1',
+    'ui.map.powerups.extraLife': 'Vida extra',
+    'ui.map.powerups.health': 'Salud',
+    'ui.map.powerups.armour': 'Armadura',
+    'ui.map.powerups.jailCard': 'Salida gratis de la cárcel',
+    'ui.map.powerups.copBribe': 'Soborno al policía',
+    'ui.map.powerups.invulnerability': 'Invulnerabilidad',
+    'ui.map.powerups.doubleDamage': 'Doble daño',
+    'ui.map.powerups.fastReload': 'Recarga rápida',
+    'ui.map.powerups.electroFingers': 'Dedos eléctricos',
+    'ui.map.powerups.respect': 'Respeto',
+    'ui.map.powerups.invisibility': 'Invisibilidad',
+    'ui.map.powerups.instantGang': 'Banda instantánea',
+    'ui.map.poi.save': 'Puntos de guardado',
+    'ui.map.poi.garage': 'Talleres',
+    'ui.map.poi.crusher': 'Compactadoras de coches',
+    'ui.map.poi.frenzy': 'Frenesí de asesinato',
+    'ui.map.poi.weapon': 'Armas',
+    'ui.map.poi.powerup': 'Mejoras',
+    'ui.map.poi.token': 'Fichas',
+    'ui.map.police': 'Policía',
+    'ui.map.jobs.easy': 'Trabajo fácil',
+    'ui.map.jobs.medium': 'Trabajo medio',
+    'ui.map.jobs.hard': 'Trabajo difícil',
+    'ui.map.jobs.info': 'Teléfono de información',
+    'ui.map.jobNamed': '{job} de {gang}',
+    'ui.map.garage.machineGun': 'ametralladora para coche',
+    'ui.map.garage.oilSlick': 'charco de aceite',
+    'ui.map.garage.mines': 'minas para coche',
+    'ui.map.garage.bomb': 'bomba para coche',
+    'ui.map.garage.respray': 'repintado',
+    'ui.map.garageName': 'Taller: {services}',
+    'ui.map.frenzy': 'Frenesí de asesinato',
+    'ui.map.weaponN': 'Arma {n}',
+    'ui.map.powerup': 'Mejora',
+    'ui.map.token': 'Ficha',
+    'ui.map.savePointChurch': 'Punto de guardado (iglesia)',
+    'ui.map.carCrusher': 'Compactadora de coches',
+    'ui.map.missionTarget': 'Objetivo de la misión',
+    'ui.map.missionTargetsN': 'Objetivos de la misión ({n})',
+    'ui.map.drawing': 'Dibujando el mapa…',
+    'ui.map.legend.showingAll': 'Mostrando todo',
+    'ui.map.legend.foundSoFar': 'Encontrado hasta ahora',
+    'ui.map.legend.onMission': 'En una misión',
+    'ui.map.legend.gangJobs': 'Trabajos de bandas (haz clic para fijar un punto de ruta)',
+    'ui.map.legend.jobs': 'Trabajos',
+    'ui.map.briefs.currentJob': 'Trabajo actual',
+    'ui.map.briefs.messages': 'Últimos mensajes',
+    'ui.map.help.line': 'M / Esc cierra · arrastra o WASD mueve · rueda o Q/E hace zoom · clic: punto de ruta · clic derecho: quitar · Space: tú · F: {mode}{dist}',
+    'ui.map.help.revealOn': 'mostrar todo',
+    'ui.map.help.revealOff': 'solo lo que has visto',
+    'ui.map.help.waypointDist': ' · punto de ruta a {n} bloques',
+  },
+  fr: {
+    'ui.map.weapons.pistol': 'Pistolet',
+    'ui.map.weapons.machineGun': 'Mitrailleuse',
+    'ui.map.weapons.rocketLauncher': 'Lance-roquettes',
+    'ui.map.weapons.electroGun': 'Arme électro',
+    'ui.map.weapons.molotov': 'Cocktails Molotov',
+    'ui.map.weapons.grenades': 'Grenades',
+    'ui.map.weapons.shotgun': 'Fusil à pompe',
+    'ui.map.weapons.electroBaton': 'Matraque électrique',
+    'ui.map.weapons.flamethrower': 'Lance-flammes',
+    'ui.map.weapons.silenced': 'Mitrailleuse silencieuse',
+    'ui.map.weapons.dualPistol': 'Pistolet double',
+    'ui.map.powerups.multiplier': 'Multiplicateur +1',
+    'ui.map.powerups.extraLife': 'Vie supplémentaire',
+    'ui.map.powerups.health': 'Santé',
+    'ui.map.powerups.armour': 'Armure',
+    'ui.map.powerups.jailCard': 'Libéré de prison',
+    'ui.map.powerups.copBribe': 'Pot-de-vin',
+    'ui.map.powerups.invulnerability': 'Invulnérabilité',
+    'ui.map.powerups.doubleDamage': 'Dégâts doublés',
+    'ui.map.powerups.fastReload': 'Rechargement rapide',
+    'ui.map.powerups.electroFingers': 'Doigts électriques',
+    'ui.map.powerups.respect': 'Respect',
+    'ui.map.powerups.invisibility': 'Invisibilité',
+    'ui.map.powerups.instantGang': 'Gang instantané',
+    'ui.map.poi.save': 'Points de sauvegarde',
+    'ui.map.poi.garage': 'Garages',
+    'ui.map.poi.crusher': 'Broyeurs de voitures',
+    'ui.map.poi.frenzy': 'Frénésies meurtrières',
+    'ui.map.poi.weapon': 'Armes',
+    'ui.map.poi.powerup': 'Bonus',
+    'ui.map.poi.token': 'Jetons',
+    'ui.map.police': 'Police',
+    'ui.map.jobs.easy': 'Contrat facile',
+    'ui.map.jobs.medium': 'Contrat moyen',
+    'ui.map.jobs.hard': 'Contrat difficile',
+    'ui.map.jobs.info': "Téléphone d'info",
+    'ui.map.jobNamed': '{job} des {gang}',
+    'ui.map.garage.machineGun': 'mitrailleuse de voiture',
+    'ui.map.garage.oilSlick': 'tache d’huile',
+    'ui.map.garage.mines': 'mines de voiture',
+    'ui.map.garage.bomb': 'bombe de voiture',
+    'ui.map.garage.respray': 'repeinture',
+    'ui.map.garageName': 'Garage : {services}',
+    'ui.map.frenzy': 'Frénésie meurtrière',
+    'ui.map.weaponN': 'Arme {n}',
+    'ui.map.powerup': 'Bonus',
+    'ui.map.token': 'Jeton',
+    'ui.map.savePointChurch': 'Point de sauvegarde (église)',
+    'ui.map.carCrusher': 'Broyeur de voitures',
+    'ui.map.missionTarget': 'Cible de la mission',
+    'ui.map.missionTargetsN': 'Cibles de la mission ({n})',
+    'ui.map.drawing': 'Dessin de la carte…',
+    'ui.map.legend.showingAll': 'Tout afficher',
+    'ui.map.legend.foundSoFar': 'Trouvé jusqu’ici',
+    'ui.map.legend.onMission': 'En mission',
+    'ui.map.legend.gangJobs': 'Contrats des gangs (cliquez pour placer un point de passage)',
+    'ui.map.legend.jobs': 'Contrats',
+    'ui.map.briefs.currentJob': 'Contrat en cours',
+    'ui.map.briefs.messages': 'Derniers messages',
+    'ui.map.help.line': 'M / Échap ferme · glisser ou WASD déplace · molette ou Q/E zoome · clic : point de passage · clic droit : effacer · Space : vous · F : {mode}{dist}',
+    'ui.map.help.revealOn': 'tout afficher',
+    'ui.map.help.revealOff': 'seulement ce que vous avez vu',
+    'ui.map.help.waypointDist': ' · point de passage à {n} blocs',
+  },
+});
+
 const PX = 16;            // map image pixels per block (256 blocks -> 4096 px)
 const ROWS_PER_CHUNK = 8; // block rows rendered per step while building the image
 const MINIMAP_KEY = 'gta2-port-minimap';
@@ -13,31 +213,41 @@ const FX = 16384;         // Fix16: 1.0 block
 const SEEN_KEY = 'gta2-port-seen-';   // + map id: blocks seen on screen (discovery)
 const REVEAL_KEY = 'gta2-port-map-reveal';
 
-// Points of interest by object model (enums.hpp, namespace objects).
-const WEAPONS = ['Pistol', 'Machine Gun', 'Rocket Launcher', 'Electro Gun', 'Molotov Cocktails', 'Grenades',
-  'Shotgun', 'Electro Baton', 'Flamethrower', 'Silenced Machine Gun', 'Dual Pistol'];
-const POWERUPS = { 228: 'Multiplier +1', 229: 'Extra Life', 230: 'Health', 231: 'Armour', 232: 'Get Out of Jail Free',
-  233: 'Cop Bribe', 234: 'Invulnerability', 235: 'Double Damage', 236: 'Fast Reload', 237: 'Electro Fingers',
-  238: 'Respect', 239: 'Invisibility', 240: 'Instant Gang' };
+// Points of interest by object model (enums.hpp, namespace objects); the names are translation keys.
+const WEAPONS = ['ui.map.weapons.pistol', 'ui.map.weapons.machineGun', 'ui.map.weapons.rocketLauncher',
+  'ui.map.weapons.electroGun', 'ui.map.weapons.molotov', 'ui.map.weapons.grenades',
+  'ui.map.weapons.shotgun', 'ui.map.weapons.electroBaton', 'ui.map.weapons.flamethrower',
+  'ui.map.weapons.silenced', 'ui.map.weapons.dualPistol'];
+const POWERUPS = {
+  228: 'ui.map.powerups.multiplier', 229: 'ui.map.powerups.extraLife', 230: 'ui.map.powerups.health',
+  231: 'ui.map.powerups.armour', 232: 'ui.map.powerups.jailCard', 233: 'ui.map.powerups.copBribe',
+  234: 'ui.map.powerups.invulnerability', 235: 'ui.map.powerups.doubleDamage', 236: 'ui.map.powerups.fastReload',
+  237: 'ui.map.powerups.electroFingers', 238: 'ui.map.powerups.respect', 239: 'ui.map.powerups.invisibility',
+  240: 'ui.map.powerups.instantGang',
+};
+// The labels are translation keys resolved when read (the language can change at any time).
+const poi = (label, colour, glyph) => ({ get label() { return t(label); }, colour, glyph });
 export const POI_KINDS = {
-  save: { label: 'Save points', colour: '#ffffff', glyph: '✝' },
-  garage: { label: 'Garages', colour: '#c77dff', glyph: 'G' },
-  crusher: { label: 'Car crushers', colour: '#9a978f', glyph: 'C' },
-  frenzy: { label: 'Kill Frenzies', colour: '#ff3b3b', glyph: 'K' },
-  weapon: { label: 'Weapons', colour: '#ff9f1c', glyph: 'W' },
-  powerup: { label: 'Power-ups', colour: '#3ddc84', glyph: '+' },
-  token: { label: 'Tokens', colour: '#ffd23f', glyph: '$' },
+  save: poi('ui.map.poi.save', '#ffffff', '✝'),
+  garage: poi('ui.map.poi.garage', '#c77dff', 'G'),
+  crusher: poi('ui.map.poi.crusher', '#9a978f', 'C'),
+  frenzy: poi('ui.map.poi.frenzy', '#ff3b3b', 'K'),
+  weapon: poi('ui.map.poi.weapon', '#ff9f1c', 'W'),
+  powerup: poi('ui.map.poi.powerup', '#3ddc84', '+'),
+  token: poi('ui.map.poi.token', '#ffd23f', '$'),
 };
 // Gang job phones, by HUD arrow colour (Hud_Arrow_7C::DrawArrow_5D0C90; checked
 // against the phone objects at the same places).
 // Who speaks a brief (its face, GetBriefFaceIdx_5D3680): shown before the text on the job panel.
-const SPEAKERS = { 1: 'Loonies', 2: 'Yakuza', 3: 'Zaibatsu', 4: 'Rednecks', 5: 'Scientists', 6: 'Krishnas', 7: 'Russians', 9: 'Police' };
+// Gang names are proper nouns and stay as they are; t() passes them through unchanged.
+const SPEAKERS = { 1: 'Loonies', 2: 'Yakuza', 3: 'Zaibatsu', 4: 'Rednecks', 5: 'Scientists', 6: 'Krishnas', 7: 'Russians', 9: 'ui.map.police' };
 
+const job = (label, colour, dot) => ({ get label() { return t(label); }, colour, dot });
 const JOBS = {
-  3: { label: 'Easy job', colour: '#3ddc84', dot: 9 },     // green phone
-  1: { label: 'Medium job', colour: '#ffd23f', dot: 8 },   // yellow phone
-  2: { label: 'Hard job', colour: '#ff3b3b', dot: 10 },    // red phone
-  4: { label: 'Info phone', colour: '#4cc9f0', dot: 0 },   // blue phone
+  3: job('ui.map.jobs.easy', '#3ddc84', 9),     // green phone
+  1: job('ui.map.jobs.medium', '#ffd23f', 8),   // yellow phone
+  2: job('ui.map.jobs.hard', '#ff3b3b', 10),    // red phone
+  4: job('ui.map.jobs.info', '#4cc9f0', 0),   // blue phone
 };
 // HUD sprites (sprite type 6): gang arrows 1-7 (by gang arrow colour, tip up),
 // difficulty triangles 8-10, gang logos 64 + arrow colour - 1 (respect bars).
@@ -47,17 +257,17 @@ const GANGS = { zai: 'Zaibatsu', yak: 'Yakuza', loo: 'Loonies', red: 'Rednecks',
   kri: 'Hare Krishna', rus: 'Russian Mafia' };
 // What a garage door does (Car_BC::HandleShops_443C40, Player::ObjectTypeToWeaponType_443CB0).
 function garageService(extra) {
-  if (extra === 250) return 'car machine gun';
-  if (extra === 251) return 'oil slick';
-  if (extra === 252) return 'car mines';
-  if (extra === 253 || extra === 254) return 'car bomb';
-  return 'respray';
+  if (extra === 250) return t('ui.map.garage.machineGun');
+  if (extra === 251) return t('ui.map.garage.oilSlick');
+  if (extra === 252) return t('ui.map.garage.mines');
+  if (extra === 253 || extra === 254) return t('ui.map.garage.bomb');
+  return t('ui.map.garage.respray');
 }
 function describe(model) {
-  if (model === 286) return { kind: 'frenzy', name: 'Kill Frenzy' };
-  if (model >= 200 && model <= 227) return { kind: 'weapon', name: WEAPONS[model - 200] || `Weapon ${model - 200}` };
-  if (model >= 228 && model <= 249) return { kind: 'powerup', name: POWERUPS[model] || 'Power-up' };
-  if (model === 266) return { kind: 'token', name: 'Token' };
+  if (model === 286) return { kind: 'frenzy', name: t('ui.map.frenzy') };
+  if (model >= 200 && model <= 227) return { kind: 'weapon', name: WEAPONS[model - 200] ? t(WEAPONS[model - 200]) : t('ui.map.weaponN', { n: model - 200 }) };
+  if (model >= 228 && model <= 249) return { kind: 'powerup', name: POWERUPS[model] ? t(POWERUPS[model]) : t('ui.map.powerup') };
+  if (model === 266) return { kind: 'token', name: t('ui.map.token') };
   return null; // phones are shown as gang jobs; garages, crushers and saves are grouped separately
 }
 
@@ -412,7 +622,7 @@ export class Gta2Map {
     for (const [model, x, y, , extra] of this.rows('gta2_port_map_objects', 5)) {
       const p = { model, x: x / FX, y: y / FX };
       if (model === 130) garageDoors.push({ ...p, service: garageService(extra) });
-      else if (model === 143) out.push({ ...p, kind: 'crusher', name: 'Car crusher' });
+      else if (model === 143) out.push({ ...p, kind: 'crusher', name: t('ui.map.carCrusher') });
       else {
         const d = describe(model);
         if (d) out.push({ ...p, ...d });
@@ -427,10 +637,10 @@ export class Gta2Map {
     }
     for (const g of garages) {
       const services = [...new Set(g.doors.map((d) => d.service))];
-      out.push({ x: g.x, y: g.y, kind: 'garage', name: `Garage: ${services.join(', ')}` });
+      out.push({ x: g.x, y: g.y, kind: 'garage', name: t('ui.map.garageName', { services: services.join(', ') }) });
     }
     for (const [x, y, , save] of this.rows('gta2_port_map_triggers', 4, 64)) {
-      if (save) out.push({ x: x / FX, y: y / FX, kind: 'save', name: 'Save point (church)' });
+      if (save) out.push({ x: x / FX, y: y / FX, kind: 'save', name: t('ui.map.savePointChurch') });
     }
     this.pois = out;
     this.jobsCache = null;
@@ -463,9 +673,10 @@ export class Gta2Map {
         const available = colour !== 4 && !mission && (respect << 24 >> 24) >= (minRespect << 24 >> 24);
         const same = jobs.find((j) => j.gang === p.gang && j.colour === colour && Math.hypot(j.x - p.x, j.y - p.y) < 4);
         if (same) { same.shown = same.shown || p.shown; same.available = same.available || available; continue; }
-        jobs.push({ ...p, colour, available, name: `${p.gang ? `${p.gang} ` : ''}${JOBS[colour].label.toLowerCase()}` });
+        const jobText = t(JOBS[colour].label).toLowerCase();
+        jobs.push({ ...p, colour, available, name: p.gang ? t('ui.map.jobNamed', { gang: p.gang, job: jobText }) : jobText });
       } else {
-        targets.push({ ...p, name: 'Mission target' });
+        targets.push({ ...p, name: t('ui.map.missionTarget') });
       }
     }
     this.jobsCache = { jobs, active: jobs.filter((j) => j.available), targets, onMission };
@@ -660,7 +871,7 @@ export class Gta2Map {
     } else {
       ctx.fillStyle = '#9a978f';
       ctx.font = '15px system-ui, sans-serif';
-      ctx.fillText('Drawing the map…', 20, 30);
+      ctx.fillText(t('ui.map.drawing'), 20, 30);
     }
     const s = this.last;
     const pois = this.visiblePoints();
@@ -703,8 +914,8 @@ export class Gta2Map {
     ctx.fillStyle = '#e8e6e3';
     ctx.font = '13px system-ui, sans-serif';
     ctx.textBaseline = 'middle';
-    const dist = wp && s ? ` · waypoint ${Math.round(Math.hypot(wp.x - s.x, wp.y - s.y))} blocks away` : '';
-    ctx.fillText(`M / Esc close · drag or WASD move · wheel or Q/E zoom · click: waypoint · right-click: clear · Space: you · F: ${this.reveal ? 'only what you have seen' : 'show everything'}${dist}`, 12, h - 15);
+    const dist = wp && s ? t('ui.map.help.waypointDist', { n: new Intl.NumberFormat(lang()).format(Math.round(Math.hypot(wp.x - s.x, wp.y - s.y))) }) : '';
+    ctx.fillText(t('ui.map.help.line', { mode: t(this.reveal ? 'ui.map.help.revealOn' : 'ui.map.help.revealOff'), dist }), 12, h - 15);
   }
 
   drawLegend(ctx, shown) {
@@ -728,7 +939,7 @@ export class Gta2Map {
     ctx.fillStyle = 'rgba(0,0,0,.72)';
     ctx.fillRect(x - 6, y0 - 18, width, height);
     ctx.fillStyle = '#e8e6e3';
-    ctx.fillText(this.reveal ? 'Showing everything' : 'Found so far', x, y0 - 4);
+    ctx.fillText(t(this.reveal ? 'ui.map.legend.showingAll' : 'ui.map.legend.foundSoFar'), x, y0 - 4);
     let y = y0 + 18;
     for (const k of kinds) {
       this.drawPoi(ctx, x + 9, y, { kind: k }, 0.85);
@@ -742,12 +953,12 @@ export class Gta2Map {
     if (jobRows) {
       y += 8;
       ctx.fillStyle = '#e8e6e3';
-      ctx.fillText(onMission ? 'On a mission' : 'Gang jobs (click to set a waypoint)', x, y);
+      ctx.fillText(t(onMission ? 'ui.map.legend.onMission' : 'ui.map.legend.gangJobs'), x, y);
       y += lh;
       if (targets.length) {
         this.drawTarget(ctx, x + 9, y, 0.8);
         ctx.fillStyle = '#ffffff';
-        ctx.fillText(`Mission target${targets.length > 1 ? `s (${targets.length})` : ''}`, x + 26, y);
+        ctx.fillText(targets.length > 1 ? t('ui.map.missionTargetsN', { n: targets.length }) : t('ui.map.missionTarget'), x + 26, y);
         this.legendHits.push({ x: x - 6, y: y - lh / 2, w: width, h: lh, job: targets[0] });
         y += lh;
       }
@@ -755,7 +966,7 @@ export class Gta2Map {
         if (!this.drawSprite(ctx, list[0].logo, x + 9, y, 16)) this.drawJob(ctx, x + 9, y, list[0], 0.8);
         ctx.fillStyle = '#9a978f';
         ctx.font = '13px system-ui, sans-serif';
-        ctx.fillText(gang || 'Jobs', x + 26, y);
+        ctx.fillText(gang || t('ui.map.legend.jobs'), x + 26, y);
         y += lh;
         for (const j of list) {
           this.drawJob(ctx, x + 17, y, j, 0.8);
@@ -810,7 +1021,7 @@ export class Gta2Map {
     const rows = [];
     let height = pad + 22;
     for (const b of briefs) {
-      const who = SPEAKERS[b.face];
+      const who = SPEAKERS[b.face] ? t(SPEAKERS[b.face]) : null;
       const lines = wrap(who ? `${who}: ${b.text}` : b.text);
       if (rows.length && height + lines.length * lh + 8 > h - 60) break;
       rows.push({ who, lines });
@@ -820,7 +1031,7 @@ export class Gta2Map {
     ctx.fillRect(x, 12, width, height);
     ctx.fillStyle = onJob ? '#ffd23f' : '#9a978f';
     ctx.font = '600 13px system-ui, sans-serif';
-    ctx.fillText(onJob ? 'Current job' : 'Latest messages', x + pad, 12 + pad);
+    ctx.fillText(t(onJob ? 'ui.map.briefs.currentJob' : 'ui.map.briefs.messages'), x + pad, 12 + pad);
     let y = 12 + pad + 22;
     rows.forEach((r, i) => {
       r.lines.forEach((line, n) => {

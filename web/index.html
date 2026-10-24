@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>GTA2 in your browser</title>
+  <title data-i18n="ui.docTitle">GTA2 in your browser</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet">
@@ -259,71 +259,71 @@
 </head>
 <body class="booting">
   <header id="topnav" hidden>
-    <a class="logo" href="#top">GTA2<small>in your browser</small></a>
-    <nav aria-label="Sections">
-      <a href="#play">Play</a><a href="#crews">Crews</a><a href="#controls">Controls</a><a href="#options">Options</a><a href="#help">Help</a>
+    <a class="logo" href="#top">GTA2<small data-i18n="ui.logo.tagline">in your browser</small></a>
+    <nav data-i18n-aria="ui.nav.sections" aria-label="Sections">
+      <a href="#play" data-i18n="ui.nav.play">Play</a><a href="#crews" data-i18n="ui.nav.crews">Crews</a><a href="#controls" data-i18n="ui.nav.controls">Controls</a><a href="#options" data-i18n="ui.nav.options">Options</a><a href="#help" data-i18n="ui.nav.help">Help</a>
     </nav>
     <span class="grow"></span>
-    <button class="btn" type="button" data-play>Play now</button>
+    <button class="btn" type="button" data-play data-i18n="ui.playNow">Play now</button>
   </header>
   <main>
     <div id="landing" hidden>
       <section class="hero" id="top">
         <div class="card hero-shot">
-          <img src="img/downtown.png" alt="GTA2's Downtown district in widescreen, with the round radar" width="800" height="452"
+          <img src="img/downtown.png" data-i18n-alt="ui.hero.shotAlt" alt="GTA2's Downtown district in widescreen, with the round radar" width="800" height="452"
             onerror="this.closest('.hero').classList.add('no-shot')">
-          <span class="tag">Respect is everything</span>
+          <span class="tag" data-i18n="ui.hero.tag">Respect is everything</span>
         </div>
         <div class="card hero-side">
-          <h1>GTA2 in your <span>browser</span></h1>
-          <p>The real 1999 game, running in your browser on any computer. Nothing to install. Widescreen,
+          <h1 data-i18n="ui.hero.title">GTA2 in your <span>browser</span></h1>
+          <p data-i18n="ui.hero.lead">The real 1999 game, running in your browser on any computer. Nothing to install. Widescreen,
             smooth at your screen's refresh rate, a full map, and co-op with friends.</p>
           <progress id="files-bar" max="1" value="0"></progress>
-          <span id="files-state">Getting GTA2 ready…</span>
-          <div><button class="btn" type="button" data-play>Play now</button></div>
+          <span id="files-state" data-i18n="ui.files.preparing">Getting GTA2 ready…</span>
+          <div><button class="btn" type="button" data-play data-i18n="ui.playNow">Play now</button></div>
           <div id="continue-root" hidden></div>
         </div>
       </section>
 
       <section class="modes" id="play">
         <div class="card mode">
-          <h2>Single player</h2>
-          <span class="pill">3 districts</span><span class="pill">Saves in your browser</span>
-          <p>The full story: Downtown, Residential and Industrial. Earn respect with the gangs, take their jobs,
+          <h2 data-i18n="ui.mode.single">Single player</h2>
+          <span class="pill" data-i18n="ui.mode.singlePillDistricts">3 districts</span><span class="pill" data-i18n="ui.mode.singlePillSaves">Saves in your browser</span>
+          <p data-i18n="ui.mode.singleLead">The full story: Downtown, Residential and Industrial. Earn respect with the gangs, take their jobs,
             and keep the cops off your back.</p>
-          <button class="btn" type="button" data-play>Play</button>
+          <button class="btn" type="button" data-play data-i18n="ui.play">Play</button>
         </div>
         <div class="card mode">
-          <h2>Play with friends</h2>
-          <span class="pill">Up to 6 players</span><span class="pill">Free roam</span>
-          <p>Host a room and send your friends the link. Everyone sees each other on the map, shares waypoints,
+          <h2 data-i18n="ui.mode.friends">Play with friends</h2>
+          <span class="pill" data-i18n="ui.mode.friendsPillPlayers">Up to 6 players</span><span class="pill" data-i18n="ui.mode.roam">Free roam</span>
+          <p data-i18n="ui.mode.friendsLead">Host a room and send your friends the link. Everyone sees each other on the map, shares waypoints,
             and keeps score.</p>
-          <button class="btn alt" type="button" data-coop>Host or join</button>
+          <button class="btn alt" type="button" data-coop data-i18n="ui.mode.hostOrJoin">Host or join</button>
         </div>
         <div class="card mode">
-          <h2>The map</h2>
-          <span class="pill">M</span><span class="pill">Waypoints</span>
-          <p>A full map of each district that fills in as you explore, with gang jobs, phones, garages and
+          <h2 data-i18n="ui.mode.map">The map</h2>
+          <span class="pill">M</span><span class="pill" data-i18n="ui.mode.mapPillWaypoints">Waypoints</span>
+          <p data-i18n="ui.mode.mapLead">A full map of each district that fills in as you explore, with gang jobs, phones, garages and
             save points. Click anywhere to set a waypoint.</p>
-          <a class="btn ghost" href="#controls" style="display:inline-block;text-decoration:none">See controls</a>
+          <a class="btn ghost" href="#controls" style="display:inline-block;text-decoration:none" data-i18n="ui.mode.seeControls">See controls</a>
         </div>
       </section>
 
       <section class="card" id="crews">
-        <h2 class="section-title">Crew leaderboard</h2>
-        <p class="section-sub">Gang Wars crews on this server. Win matches, rack up kills and points to climb.
+        <h2 class="section-title" data-i18n="ui.crews.title">Crew leaderboard</h2>
+        <p class="section-sub" data-i18n="ui.crews.sub">Gang Wars crews on this server. Win matches, rack up kills and points to climb.
           A win is worth 50 reputation, each kill 5, each death −2, and every $10,000 of points 1.</p>
-        <div id="leaderboard-root"><p class="section-sub">No crews yet. Start a Gang War: "Play with friends", then mode "Gang Wars".</p></div>
+        <div id="leaderboard-root"><p class="section-sub" data-i18n="ui.crews.empty">No crews yet. Start a Gang War: "Play with friends", then mode "Gang Wars".</p></div>
       </section>
 
       <section class="card" id="controls">
-        <h2 class="section-title">Controls</h2>
-        <div class="seg controls-tabs" id="controls-tabs" role="tablist" aria-label="Controls">
-          <button type="button" role="tab" id="tab-kb" aria-controls="panel-kb" aria-selected="true">Keyboard</button>
-          <button type="button" role="tab" id="tab-pad" aria-controls="panel-pad" aria-selected="false" tabindex="-1">Controller</button>
+        <h2 class="section-title" data-i18n="ui.controls.title">Controls</h2>
+        <div class="seg controls-tabs" id="controls-tabs" role="tablist" data-i18n-aria="ui.controls.title" aria-label="Controls">
+          <button type="button" role="tab" id="tab-kb" aria-controls="panel-kb" aria-selected="true" data-i18n="ui.controls.keyboard">Keyboard</button>
+          <button type="button" role="tab" id="tab-pad" aria-controls="panel-pad" aria-selected="false" tabindex="-1" data-i18n="ui.controller">Controller</button>
         </div>
         <div id="panel-kb" role="tabpanel" aria-labelledby="tab-kb">
-          <p class="section-sub">Change any of them in the game: Options on the main menu, or the Controls button under the game.</p>
+          <p class="section-sub" data-i18n="ui.controls.changeNote">Change any of them in the game: Options on the main menu, or the Controls button under the game.</p>
           <div id="kb-root"></div>
           <div id="legend-root"></div>
         </div>
@@ -331,130 +331,134 @@
           <p class="section-sub" id="pad-status" role="status"></p>
           <div class="pad-wrap" id="pad-root"></div>
           <div id="pad-legend-root"></div>
-          <p class="section-sub pad-note">In the game's menus and on the map: ✕ confirms, ○ goes back, the left stick or
+          <p class="section-sub pad-note" data-i18n="ui.controls.padNote">In the game's menus and on the map: ✕ confirms, ○ goes back, the left stick or
             d-pad moves, L1 / R1 zoom the map.</p>
         </div>
       </section>
 
       <section class="card" id="options">
-        <h2 class="section-title">Options</h2>
-        <p class="section-sub">Saved in this browser and used next time you start. The buttons at the bottom of the
+        <h2 class="section-title" data-i18n="ui.options.title">Options</h2>
+        <p class="section-sub" data-i18n="ui.options.intro">Saved in this browser and used next time you start. The buttons at the bottom of the
           game screen change most of them while you play.</p>
         <div id="options-root"></div>
       </section>
 
       <section class="card faq" id="help">
-        <h2 class="section-title">Help and FAQ</h2>
-        <details open><summary>What is this?</summary>
-          <p>Grand Theft Auto 2 (DMA Design, 1999), running from the community's reconstruction of its original code,
+        <h2 class="section-title" data-i18n="ui.help.title">Help and FAQ</h2>
+        <details open><summary data-i18n="ui.help.q1">What is this?</summary>
+          <p data-i18n="ui.help.a1">Grand Theft Auto 2 (DMA Design, 1999), running from the community's reconstruction of its original code,
             compiled for the web. It plays like the original, with modern extras: widescreen, a smoother camera,
             smooth motion on high-refresh screens, a map with waypoints, and co-op.</p></details>
-        <details><summary>Do I need to install anything?</summary>
-          <p>No. The first visit downloads the game once (about 355 MB) and keeps it in your browser, so later
+        <details><summary data-i18n="ui.help.q2">Do I need to install anything?</summary>
+          <p data-i18n="ui.help.a2">No. The first visit downloads the game once (about 355 MB) and keeps it in your browser, so later
             visits start straight away. Use a desktop browser: Chrome, Edge, Firefox, Safari or Brave, on Windows,
             macOS, Linux or ChromeOS.</p></details>
-        <details><summary>How does co-op work?</summary>
-          <p>Press "Host or join", host a room, and send your friends the link the lobby shows. When everyone is in,
+        <details><summary data-i18n="ui.help.q3">How does co-op work?</summary>
+          <p data-i18n="ui.help.a3">Press "Host or join", host a room, and send your friends the link the lobby shows. When everyone is in,
             pick a district and start. Every player's browser runs the whole game; only key presses travel between
             you. Hold Tab for the scoreboard; your friends show on the map and radar in their own colours.</p></details>
-        <details><summary>Where are my saves?</summary>
-          <p>In this browser. Use "Export saves" at the bottom of the game screen to keep a copy, and "Import saves"
+        <details><summary data-i18n="ui.help.q4">Where are my saves?</summary>
+          <p data-i18n="ui.help.a4">In this browser. Use "Export saves" at the bottom of the game screen to keep a copy, and "Import saves"
             to bring them to another browser.</p></details>
-        <details><summary>It runs slowly or looks wrong</summary>
-          <p>Turn on the FPS counter in Options. Close other heavy tabs, and try another browser if it stays low.
+        <details><summary data-i18n="ui.help.q5">It runs slowly or looks wrong</summary>
+          <p data-i18n="ui.help.a5">Turn on the FPS counter in Options. Close other heavy tabs, and try another browser if it stays low.
             "Motion: Original 30 fps" and "Screen shape: 4:3 original" are the lightest settings.</p></details>
-        <details id="stats-faq" hidden><summary>Do you track me?</summary>
-          <p>No cookies and no personal data. This site counts visits, games started, how long games run
+        <details id="stats-faq" hidden><summary data-i18n="ui.help.q8">Do you track me?</summary>
+          <p data-i18n="ui.help.a8">No cookies and no personal data. This site counts visits, games started, how long games run
             (in steps such as "over 30 minutes") and first-time downloads, anonymously with
             <a href="https://www.goatcounter.com" target="_blank" rel="noopener">GoatCounter</a>,
             so we know how many people play.</p></details>
-        <details><summary>Is it legal?</summary>
-          <p>GTA2 was released as freeware by Rockstar Games in 2004. This is an unofficial, non-commercial fan
+        <details><summary data-i18n="ui.help.q6">Is it legal?</summary>
+          <p data-i18n="ui.help.a6">GTA2 was released as freeware by Rockstar Games in 2004. This is an unofficial, non-commercial fan
             project, not affiliated with Rockstar Games or Take-Two Interactive. GTA2 is © Rockstar Games.</p></details>
+        <details><summary data-i18n="ui.help.q7">Which languages are there?</summary>
+          <p data-i18n="ui.help.a7">English, Spanish and French, for this page and for the game itself: menus, HUD and status
+            messages. Mission briefs are only translated when your game files include the game's own Spanish or French texts;
+            otherwise they stay in English.</p></details>
       </section>
-      <p class="landing-foot"><a href="https://github.com/M1sterMo/gta2-browser" target="_blank" rel="noopener">Source and credits on GitHub</a>
+      <p class="landing-foot" data-i18n="ui.foot.credit"><a href="https://github.com/M1sterMo/gta2-browser" target="_blank" rel="noopener">Source and credits on GitHub</a>
         · Grand Theft Auto 2 © Rockstar Games</p>
     </div>
     <section id="picker">
-      <h1>GTA2 in the browser</h1>
-      <p>Choose your installed GTA2 folder (the one containing <code>data</code>). Your game files are read
+      <h1 data-i18n="ui.picker.title">GTA2 in the browser</h1>
+      <p data-i18n="ui.picker.intro">Choose your installed GTA2 folder (the one containing <code>data</code>). Your game files are read
         locally and never leave this computer.</p>
       <div id="coop" hidden>
-        <p>Free roam with friends in a story district, using GTA2's own multiplayer.
+        <p data-i18n="ui.coop.lead">Free roam with friends in a story district, using GTA2's own multiplayer.
           Everyone runs the game; only key presses travel between players.</p>
-        <p class="p2p-only">They go directly from browser to browser (peer to peer, no game
+        <p class="p2p-only" data-i18n="ui.coop.p2p">They go directly from browser to browser (peer to peer, no game
           server). Each player needs their own copy of the game files.</p>
-        <label class="field">Your name <input id="coop-name" maxlength="16" placeholder="Player"></label>
+        <label class="field"><span data-i18n="ui.coop.yourName">Your name</span> <input id="coop-name" maxlength="16" data-i18n-placeholder="ui.coop.namePlaceholder" placeholder="Player"></label>
         <div class="row">
-          <button id="coop-host" type="button" class="primary">Host a game</button>
-          <span>or</span>
-          <input id="coop-code" maxlength="8" placeholder="Room code" aria-label="Room code">
-          <button id="coop-join" type="button">Join</button>
+          <button id="coop-host" type="button" class="primary" data-i18n="ui.coop.host">Host a game</button>
+          <span data-i18n="ui.coop.or">or</span>
+          <input id="coop-code" maxlength="8" data-i18n-placeholder="ui.coop.roomCode" data-i18n-aria="ui.coop.roomCode" placeholder="Room code" aria-label="Room code">
+          <button id="coop-join" type="button" data-i18n="ui.coop.join">Join</button>
         </div>
         <p id="coop-state" role="status"></p>
-        <p id="coop-invite" hidden>Send your friends this link: <input id="coop-link" readonly aria-label="Invite link">
-          <button id="coop-copy" type="button">Copy</button></p>
+        <p id="coop-invite" hidden><span data-i18n="ui.coop.invite">Send your friends this link:</span> <input id="coop-link" readonly data-i18n-aria="ui.coop.inviteLink" aria-label="Invite link">
+          <button id="coop-copy" type="button" data-i18n="ui.coop.copy">Copy</button></p>
         <div id="coop-results" hidden></div>
         <ol id="coop-players"></ol>
         <div class="row">
-          <label class="field">Mode
+          <label class="field"><span data-i18n="ui.coop.mode">Mode</span>
             <select id="coop-mode">
-              <option value="roam">Free roam</option>
-              <option value="wars">Gang Wars</option>
-              <option value="ffa">Free-for-all</option>
+              <option value="roam" data-i18n="ui.mode.roam">Free roam</option>
+              <option value="wars" data-i18n="ui.mode.wars">Gang Wars</option>
+              <option value="ffa" data-i18n="ui.mode.ffa">Free-for-all</option>
             </select>
           </label>
-          <label class="field">District
+          <label class="field"><span data-i18n="ui.coop.district">District</span>
             <select id="coop-district">
-              <option value="downtown">Downtown</option>
-              <option value="residential">Residential</option>
-              <option value="industrial">Industrial</option>
+              <option value="downtown" data-i18n="ui.district.downtown">Downtown</option>
+              <option value="residential" data-i18n="ui.district.residential">Residential</option>
+              <option value="industrial" data-i18n="ui.district.industrial">Industrial</option>
             </select>
           </label>
-          <label class="field" data-modes="wars ffa">Time limit (min, 0 = none)
+          <label class="field" data-modes="wars ffa"><span data-i18n="ui.coop.timeLimit">Time limit (min, 0 = none)</span>
             <input id="coop-minutes" type="number" min="0" max="60" step="1" list="coop-minutes-list" class="num">
             <datalist id="coop-minutes-list"><option value="10"><option value="20"><option value="30"><option value="60"></datalist>
           </label>
-          <label class="field" data-modes="ffa">Kills to win (0 = no limit)
+          <label class="field" data-modes="ffa"><span data-i18n="ui.coop.killsToWin">Kills to win (0 = no limit)</span>
             <input id="coop-kills" type="number" min="0" max="999" step="1" list="coop-kills-list" class="num">
             <datalist id="coop-kills-list"><option value="5"><option value="10"><option value="20"><option value="50"></datalist>
           </label>
-          <label class="field" data-modes="wars">Points to win ($, 0 = no target)
+          <label class="field" data-modes="wars"><span data-i18n="ui.coop.pointsToWin">Points to win ($, 0 = no target)</span>
             <input id="coop-points" type="number" min="0" max="100000000" step="10000" list="coop-points-list" class="num wide">
             <datalist id="coop-points-list"><option value="250000"><option value="500000"><option value="1000000"><option value="5000000"></datalist>
           </label>
-          <label class="field ff" data-modes="roam"><span>Friendly fire</span>
-            <span><input id="coop-ff" type="checkbox"> players can hurt each other</span></label>
+          <label class="field ff" data-modes="roam"><span data-i18n="ui.coop.friendlyFire">Friendly fire</span>
+            <span><input id="coop-ff" type="checkbox"> <span data-i18n="ui.coop.ffHint">players can hurt each other</span></span></label>
         </div>
         <p id="coop-mode-help" class="mode-help"></p>
         <div class="row" data-modes="wars">
-          <label class="field">New crew (or join one below)
-            <input id="coop-crew" list="coop-crew-list" maxlength="16" placeholder="Crew name, e.g. Hexen">
+          <label class="field"><span data-i18n="ui.coop.newCrew">New crew (or join one below)</span>
+            <input id="coop-crew" list="coop-crew-list" maxlength="16" data-i18n-placeholder="ui.coop.crewPlaceholder" placeholder="Crew name, e.g. Hexen">
           </label>
           <datalist id="coop-crew-list"></datalist>
         </div>
         <div id="coop-crews" data-modes="wars"></div>
         <div class="row">
-          <button id="coop-start" type="button" class="primary" hidden>Start</button>
+          <button id="coop-start" type="button" class="primary" hidden data-i18n="ui.coop.start">Start</button>
           <span id="coop-start-why" class="mode-help"></span>
         </div>
       </div>
       <div id="saved" hidden>
         <p id="saved-info"></p>
-        <button id="play-saved" type="button">Play</button>
-        <button id="forget-files" type="button">Forget game files</button>
+        <button id="play-saved" type="button" data-i18n="ui.play">Play</button>
+        <button id="forget-files" type="button" data-i18n="ui.picker.forget">Forget game files</button>
       </div>
-      <label class="button">Choose GTA2 folder
+      <label class="button"><span data-i18n="ui.picker.choose">Choose GTA2 folder</span>
         <input id="folder" type="file" webkitdirectory directory multiple>
       </label>
       <div id="freeware">
-        <p>No GTA2 installed? Rockstar released it free in 2004. Download that release from the
+        <p data-i18n="ui.freeware.lead">No GTA2 installed? Rockstar released it free in 2004. Download that release from the
           Internet Archive straight into this browser (346 MB); it is unpacked here and kept for next time.</p>
-        <button id="download-freeware" type="button">Download GTA2 (free, 346 MB)</button>
-        <p id="installer-pick">Or download <code>GTA2INSTALLER.exe</code> from the
+        <button id="download-freeware" type="button" data-i18n="ui.freeware.download">Download GTA2 (free, 346 MB)</button>
+        <p id="installer-pick" data-i18n="ui.freeware.pick">Or download <code>GTA2INSTALLER.exe</code> from the
           <a href="https://archive.org/details/gta2_rockstar-classics" target="_blank" rel="noopener">Internet Archive</a>
           yourself and choose it here:</p>
-        <label class="button secondary">Choose GTA2INSTALLER.exe
+        <label class="button secondary"><span data-i18n="ui.freeware.choose">Choose GTA2INSTALLER.exe</span>
           <input id="installer-file" type="file" accept=".exe,application/octet-stream">
         </label>
       </div>
@@ -466,19 +470,24 @@
     <p id="coop-banner" role="status" hidden></p>
     <p id="fps" hidden></p>
     <div id="tools" hidden>
-      <button id="camera" type="button" title="Modern: smooth zoom (no pumping). Classic: the original camera.">Camera: Modern</button>
+      <!-- Stateful labels (they follow the button's state): no data-i18n here, the shell
+           re-renders them on a language change. -->
+      <button id="camera" type="button">Camera: Modern</button>
       <button id="view-distance" type="button">View: Normal</button>
-      <button id="map-open" type="button" title="Full map (M): set a waypoint">Map (M)</button>
+      <button id="map-open" type="button" data-i18n="ui.tools.map" data-i18n-title="ui.tools.mapTitle" title="Full map (M): set a waypoint">Map (M)</button>
       <button id="minimap-toggle" type="button" aria-pressed="true">Minimap</button>
       <button id="fps-toggle" type="button" aria-pressed="false">FPS</button>
       <button id="fullscreen" type="button">Full screen</button>
       <button id="mute" type="button">Mute</button>
-      <button id="saves-open" type="button">Saves</button>
-      <button id="controls-open" type="button" title="Change the game's keys">Controls</button>
-      <button id="export-saves" type="button">Export saves</button>
-      <label>Import saves<input id="import-saves" type="file" accept="application/json,.json"></label>
+      <button id="saves-open" type="button" data-i18n="ui.tools.saves">Saves</button>
+      <button id="controls-open" type="button" data-i18n="ui.tools.controls" data-i18n-title="ui.tools.controlsTitle" title="Change the game's keys">Controls</button>
+      <button id="export-saves" type="button" data-i18n="ui.tools.export">Export saves</button>
+      <label><span data-i18n="ui.tools.import">Import saves</span><input id="import-saves" type="file" accept="application/json,.json"></label>
+      <button id="lang-toggle" type="button">English</button>
     </div>
   </main>
+  <!-- strings.js is imported by shell.js (one module instance); it applies the stored
+       language as soon as the page's markup is parsed. -->
   <script type="module" src="shell.js"></script>
 </body>
 </html>

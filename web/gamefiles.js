@@ -5,6 +5,55 @@
 // like any other site data. A "complete" marker is written last, so an
 // interrupted copy is never used. "Forget game files" deletes the copy.
 
+import { lang, registerDict, t } from './strings.js';
+
+// ui.files.badSize / checksum / unpackFailed / noFiles are the keys web/installer-worker.js
+// sends back; the worker has no access to the language, so they are translated here.
+registerDict({
+  en: {
+    'ui.files.notInstaller': 'That is not the GTA2 freeware installer: GTA2INSTALLER.exe is {size} bytes.',
+    'ui.files.workerFailed': 'The unpacking worker failed.',
+    'ui.files.txAborted': 'transaction aborted',
+    'ui.files.downloadFailed': 'The download failed (HTTP {status})',
+    'ui.files.tooLarge': 'The download is larger than the GTA2 installer',
+    'ui.files.stoppedEarly': 'The download stopped early ({got} of {total} bytes)',
+    'ui.files.stalled': 'The Internet Archive sent nothing for {n} seconds',
+    'ui.files.unreachable': 'The Internet Archive could not be reached ({err})',
+    'ui.files.badSize': 'The installer has the wrong size ({n} bytes).',
+    'ui.files.checksum': 'The installer does not match the GTA2 freeware release (checksum mismatch).',
+    'ui.files.unpackFailed': 'Unpacking failed (unshield {rc}): {log}',
+    'ui.files.noFiles': 'Unpacking produced no game files: {log}',
+  },
+  es: {
+    'ui.files.notInstaller': 'Ese no es el instalador freeware de GTA2: GTA2INSTALLER.exe ocupa {size} bytes.',
+    'ui.files.workerFailed': 'El proceso de descompresión falló.',
+    'ui.files.txAborted': 'transacción cancelada',
+    'ui.files.downloadFailed': 'La descarga falló (HTTP {status})',
+    'ui.files.tooLarge': 'La descarga es mayor que el instalador de GTA2',
+    'ui.files.stoppedEarly': 'La descarga se detuvo antes de tiempo ({got} de {total} bytes)',
+    'ui.files.stalled': 'El Internet Archive no envió nada durante {n} segundos',
+    'ui.files.unreachable': 'No se pudo contactar con el Internet Archive ({err})',
+    'ui.files.badSize': 'El instalador tiene un tamaño incorrecto ({n} bytes).',
+    'ui.files.checksum': 'El instalador no coincide con la edición freeware de GTA2 (la suma de comprobación no coincide).',
+    'ui.files.unpackFailed': 'La descompresión falló (unshield {rc}): {log}',
+    'ui.files.noFiles': 'La descompresión no produjo archivos de juego: {log}',
+  },
+  fr: {
+    'ui.files.notInstaller': 'Ce n’est pas l’installateur freeware de GTA2 : GTA2INSTALLER.exe fait {size} octets.',
+    'ui.files.workerFailed': 'Le processus de décompression a échoué.',
+    'ui.files.txAborted': 'transaction interrompue',
+    'ui.files.downloadFailed': 'Le téléchargement a échoué (HTTP {status})',
+    'ui.files.tooLarge': 'Le téléchargement est plus grand que l’installateur de GTA2',
+    'ui.files.stoppedEarly': 'Le téléchargement s’est arrêté trop tôt ({got} sur {total} octets)',
+    'ui.files.stalled': 'Internet Archive n’a rien envoyé pendant {n} secondes',
+    'ui.files.unreachable': 'Impossible de joindre Internet Archive ({err})',
+    'ui.files.badSize': 'L’installateur a une taille incorrecte ({n} octets).',
+    'ui.files.checksum': 'L’installateur ne correspond pas à l’édition freeware de GTA2 (somme de contrôle différente).',
+    'ui.files.unpackFailed': 'La décompression a échoué (unshield {rc}) : {log}',
+    'ui.files.noFiles': 'La décompression n’a produit aucun fichier de jeu : {log}',
+  },
+});
+
 const DB_NAME = 'gta2-port-gamefiles';
 const FILES = 'files';
 const META = 'meta';
@@ -21,7 +70,7 @@ function txDone(tx) {
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
-    tx.onabort = () => reject(tx.error || new Error('transaction aborted'));
+    tx.onabort = () => reject(tx.error || new Error(t('ui.files.txAborted')));
   });
 }
 
@@ -62,7 +111,7 @@ export async function downloadFreeware(onProgress) {
  */
 export async function unpackInstallerFile(file, onProgress) {
   if (file.size !== INSTALLER_SIZE) {
-    throw new Error(`That is not the GTA2 freeware installer: GTA2INSTALLER.exe is ${INSTALLER_SIZE.toLocaleString()} bytes.`);
+    throw new Error(t('ui.files.notInstaller', { size: new Intl.NumberFormat(lang()).format(INSTALLER_SIZE) }));
   }
   onProgress('read', 0, file.size);
   return unpackInstaller(new Uint8Array(await file.arrayBuffer()), onProgress);
@@ -78,10 +127,11 @@ async function unpackInstaller(buf, onProgress) {
         else if (m.type === 'done') resolve(m.files);
         else if (m.type === 'error') {
           if (m.installer && m.installer.byteLength === INSTALLER_SIZE) keptInstaller = new Uint8Array(m.installer);
-          reject(new Error(m.message));
+          // the worker sends translation keys; it has no access to the language
+          reject(new Error(m.key ? t(m.key, m.vars) : m.message));
         }
       };
-      worker.onerror = (e) => reject(new Error(e.message || 'The unpacking worker failed.'));
+      worker.onerror = () => reject(new Error(t('ui.files.workerFailed')));
       worker.postMessage({ installer: buf.buffer }, [buf.buffer]);
     });
     return new Map(files.map(([rel, data]) => [rel, new Blob([data])]));
@@ -100,7 +150,7 @@ async function fetchInstaller(onProgress) {
   watch();
   try {
     const res = await fetch(INSTALLER_URL, { signal: abort.signal });
-    if (!res.ok || !res.body) throw new Error(`The download failed (HTTP ${res.status})`);
+    if (!res.ok || !res.body) throw new Error(t('ui.files.downloadFailed', { status: res.status }));
     const buf = new Uint8Array(INSTALLER_SIZE);
     const reader = res.body.getReader();
     let got = 0;
@@ -108,16 +158,19 @@ async function fetchInstaller(onProgress) {
       const { done, value } = await reader.read();
       if (done) break;
       watch();
-      if (got + value.length > INSTALLER_SIZE) throw new Error('The download is larger than the GTA2 installer');
+      if (got + value.length > INSTALLER_SIZE) throw new Error(t('ui.files.tooLarge'));
       buf.set(value, got);
       got += value.length;
       onProgress('download', got, INSTALLER_SIZE);
     }
-    if (got !== INSTALLER_SIZE) throw new Error(`The download stopped early (${got} of ${INSTALLER_SIZE} bytes)`);
+    if (got !== INSTALLER_SIZE) {
+      const bytes = (n) => new Intl.NumberFormat(lang()).format(n);
+      throw new Error(t('ui.files.stoppedEarly', { got: bytes(got), total: bytes(INSTALLER_SIZE) }));
+    }
     return buf;
   } catch (err) {
-    if (abort.signal.aborted) throw new Error(`The Internet Archive sent nothing for ${STALL_MS / 1000} seconds`);
-    if (err instanceof TypeError) throw new Error(`The Internet Archive could not be reached (${err.message})`);
+    if (abort.signal.aborted) throw new Error(t('ui.files.stalled', { n: STALL_MS / 1000 }));
+    if (err instanceof TypeError) throw new Error(t('ui.files.unreachable', { err: err.message }));
     throw err;
   } finally {
     clearTimeout(timer);

@@ -24,16 +24,53 @@
 // catch games drifting apart), and chat {text}. Game messages
 // are binary and go straight to the core (gta2_port_net_receive).
 
+import { registerDict, t } from './strings.js';
+
+registerDict({
+  en: {
+    'ui.net.serverNoAnswer': 'the game server did not answer',
+    'ui.net.noAnswer': 'no answer',
+    'ui.net.waitingPlayer': 'Waiting for at least one more player.',
+    'ui.net.needCrew': 'Everyone needs a crew for Gang Wars.',
+    'ui.net.twoCrews': 'Gang Wars needs at least two crews.',
+    'ui.net.threeCrews': 'Gang Wars has room for three crews (one per street gang).',
+    'ui.net.waitingGang': 'Waiting for {names} to pick a gang.',
+    'ui.net.and': 'and',
+  },
+  es: {
+    'ui.net.serverNoAnswer': 'el servidor del juego no respondió',
+    'ui.net.noAnswer': 'sin respuesta',
+    'ui.net.waitingPlayer': 'Esperando al menos a un jugador más.',
+    'ui.net.needCrew': 'Todos necesitan un clan para Guerras de bandas.',
+    'ui.net.twoCrews': 'Guerras de bandas necesita al menos dos clanes.',
+    'ui.net.threeCrews': 'Guerras de bandas admite tres clanes (uno por banda callejera).',
+    'ui.net.waitingGang': 'Esperando a que {names} elija una banda.',
+    'ui.net.and': 'y',
+  },
+  fr: {
+    'ui.net.serverNoAnswer': 'le serveur de jeu n’a pas répondu',
+    'ui.net.noAnswer': 'pas de réponse',
+    'ui.net.waitingPlayer': 'En attente d’au moins un autre joueur.',
+    'ui.net.needCrew': 'Tout le monde a besoin d’une équipe pour les Guerres de gangs.',
+    'ui.net.twoCrews': 'Les Guerres de gangs ont besoin d’au moins deux équipes.',
+    'ui.net.threeCrews': 'Les Guerres de gangs accueillent trois équipes (une par gang de rue).',
+    'ui.net.waitingGang': 'En attente du choix d’un gang par {names}.',
+    'ui.net.and': 'et',
+  },
+});
+
 // The original's multiplayer setups for the three story districts (data/*.mmp).
+// Labels are translated when read (the language can change at any time).
 export const DISTRICTS = {
-  downtown: { label: 'Downtown', gmp: 'wil-multi.gmp', sty: 'wil.sty', scr: (n) => `downtown-${n}p.scr` },
-  residential: { label: 'Residential', gmp: 'ste.gmp', sty: 'ste.sty', scr: (n) => `res-${n}p.scr` },
-  industrial: { label: 'Industrial', gmp: 'bil-multi.gmp', sty: 'bil.sty', scr: (n) => `Industrial-${n}P.scr` },
+  downtown: { get label() { return t('ui.district.downtown'); }, gmp: 'wil-multi.gmp', sty: 'wil.sty', scr: (n) => `downtown-${n}p.scr` },
+  residential: { get label() { return t('ui.district.residential'); }, gmp: 'ste.gmp', sty: 'ste.sty', scr: (n) => `res-${n}p.scr` },
+  industrial: { get label() { return t('ui.district.industrial'); }, gmp: 'bil-multi.gmp', sty: 'bil.sty', scr: (n) => `Industrial-${n}P.scr` },
 };
 export const MAX_PLAYERS = 6;
 
 // Each district's three street gangs (the multiplayer maps have them all): internal name, name,
 // colour. In Gang Wars every crew sides with one; its members treat the crew as their own.
+// Gang names are proper nouns and are not translated.
 export const GANGS = {
   downtown: [['zai', 'Zaibatsu', '#c8c8c8'], ['loo', 'Loonies', '#3fd16a'], ['yak', 'Yakuza', '#4fa8ff']],
   residential: [['zai', 'Zaibatsu', '#c8c8c8'], ['red', 'Rednecks', '#ff8a3d'], ['sci', 'SRS Scientists', '#b38bff']],
@@ -41,7 +78,11 @@ export const GANGS = {
 };
 
 // Match modes: free roam (co-op), Gang Wars (crews), free-for-all (the original frag game).
-export const MODES = { roam: 'Free roam', wars: 'Gang Wars', ffa: 'Free-for-all' };
+export const MODES = {
+  get roam() { return t('ui.mode.roam'); },
+  get wars() { return t('ui.mode.wars'); },
+  get ffa() { return t('ui.mode.ffa'); },
+};
 
 const cleanCrew = (name) => String(name || '').replace(/[^\p{L}\p{N} _.'-]/gu, '').trim().slice(0, 16);
 
@@ -83,7 +124,7 @@ export class ServerTransport {
     ws.binaryType = 'arraybuffer';
     return new Promise((ok, fail) => {
       ws.onopen = () => ok(new ServerTransport(ws, room));
-      ws.onerror = () => fail(new Error('the game server did not answer'));
+      ws.onerror = () => fail(new Error(t('ui.net.serverNoAnswer')));
     });
   }
 
@@ -144,7 +185,7 @@ export class ServerTransport {
     return new Promise((ok, fail) => {
       this.pings.set(n, () => ok(performance.now() - t0));
       this.ws.send(JSON.stringify({ t: 'ping', to: id, n }));
-      setTimeout(() => { if (this.pings.delete(n)) fail(new Error('no answer')); }, 5000);
+      setTimeout(() => { if (this.pings.delete(n)) fail(new Error(t('ui.net.noAnswer'))); }, 5000);
     });
   }
 
@@ -248,7 +289,7 @@ export class CoopLobby {
     if (!data || !data.lobby) return;
     if (data.lobby === 'hello' && this.host && !this.started) {
       if (!this.players.some((p) => p.id === from) && this.players.length < MAX_PLAYERS) {
-        this.players.push({ id: from, name: String(data.name || 'Player').slice(0, 16), crew: '' });
+        this.players.push({ id: from, name: String(data.name || t('ui.coop.namePlaceholder')).slice(0, 16), crew: '' });
       }
       this.broadcastRoster();
     } else if (data.lobby === 'crew' && this.host && !this.started) {
@@ -346,14 +387,14 @@ export class CoopLobby {
 
   /** Host: why the match cannot start yet, or ''. */
   startProblem() {
-    if (this.players.length < 2) return 'Waiting for at least one more player.';
+    if (this.players.length < 2) return t('ui.net.waitingPlayer');
     if (this.settings.mode !== 'wars') return '';
     const crews = this.crews();
-    if (this.players.some((p) => !p.crew)) return 'Everyone needs a crew for Gang Wars.';
-    if (crews.length < 2) return 'Gang Wars needs at least two crews.';
-    if (crews.length > 3) return 'Gang Wars has room for three crews (one per street gang).';
+    if (this.players.some((p) => !p.crew)) return t('ui.net.needCrew');
+    if (crews.length < 2) return t('ui.net.twoCrews');
+    if (crews.length > 3) return t('ui.net.threeCrews');
     const unpicked = crews.filter((c) => !c.side).map((c) => c.name);
-    if (unpicked.length) return `Waiting for ${unpicked.join(' and ')} to pick a gang.`;
+    if (unpicked.length) return t('ui.net.waitingGang', { names: unpicked.join(` ${t('ui.net.and')} `) });
     return '';
   }
 

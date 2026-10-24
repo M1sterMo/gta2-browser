@@ -10,6 +10,26 @@
 // 640 for menus and other 4:3 screens (pillarboxed), or the widescreen view
 // width for gameplay frames.
 
+import { registerDict, t } from './strings.js';
+
+registerDict({
+  en: {
+    'ui.render.shaderCompile': 'shader compile failed: {log}',
+    'ui.render.shaderLink': 'shader link failed: {log}',
+    'ui.render.noWebgl2': 'WebGL2 is not available in this browser',
+  },
+  es: {
+    'ui.render.shaderCompile': 'falló la compilación del shader: {log}',
+    'ui.render.shaderLink': 'falló el enlazado del shader: {log}',
+    'ui.render.noWebgl2': 'WebGL2 no está disponible en este navegador',
+  },
+  fr: {
+    'ui.render.shaderCompile': 'échec de la compilation du shader : {log}',
+    'ui.render.shaderLink': 'échec de l’édition de liens du shader : {log}',
+    'ui.render.noWebgl2': "WebGL2 n'est pas disponible dans ce navigateur",
+  },
+});
+
 const REF_W = 640;
 const REF_H = 480;
 const VERTEX_BYTES = 24;
@@ -56,7 +76,7 @@ function compile(gl, type, source) {
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    throw new Error(`shader compile failed: ${gl.getShaderInfoLog(shader)}`);
+    throw new Error(t('ui.render.shaderCompile', { log: gl.getShaderInfoLog(shader) }));
   }
   return shader;
 }
@@ -66,7 +86,7 @@ export class Gta2Renderer {
   constructor(canvas) {
     this.canvas = canvas;
     const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, preserveDrawingBuffer: true });
-    if (!gl) throw new Error('WebGL2 is not available in this browser');
+    if (!gl) throw new Error(t('ui.render.noWebgl2'));
     this.gl = gl;
     this.module = null;
     this.textures = new Map();
@@ -77,7 +97,7 @@ export class Gta2Renderer {
     gl.attachShader(program, compile(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER));
     gl.linkProgram(program);
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      throw new Error(`shader link failed: ${gl.getProgramInfoLog(program)}`);
+      throw new Error(t('ui.render.shaderLink', { log: gl.getProgramInfoLog(program) }));
     }
     this.program = program;
     this.uView = gl.getUniformLocation(program, 'uView');

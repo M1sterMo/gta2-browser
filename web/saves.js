@@ -1,7 +1,74 @@
 // The Saves screen (single player): the autosave and six slots, each a card with a picture of
 // the moment, the area, district, cash and wanted level. Save here, load or delete; the game is
 // paused while it is open. Opened (and closed) with Ctrl+S / ⌘S or F5, or the toolbar's Saves button.
-import { LOAD_KEY, SAVE_KEY, SAVE_MIN_COST, SLOTS, deleteSave, listSaves, saveCost, slotName } from './savestate.js';
+import { LOAD_KEY, SAVE_KEY, SAVE_MIN_COST, SLOTS, deleteSave, listSaves, money, num, saveCost, slotName } from './savestate.js';
+import { lang, onLangChange, registerDict, t } from './strings.js';
+
+registerDict({
+  en: {
+    'ui.saves.keysHint': 'Open and close with {saveKey} or {loadKey} · Esc closes',
+    'ui.saves.close': 'Close',
+    'ui.saves.startToSave': 'Start a game to save. You can load a save from here at any time.',
+    'ui.saves.stillLoad': '{why} You can still load.',
+    'ui.saves.note': 'Saving now costs {cost} (20% of your {cash}, at least {min}), one save every 2 minutes. No saving while wanted or during a job. Passing a job or a kill frenzy autosaves for free.',
+    'ui.saves.stay': 'Saves stay in this browser. A save made before an update can’t be loaded by the new version.',
+    'ui.saves.empty': 'Empty',
+    'ui.saves.save': 'Save',
+    'ui.saves.saveHere': 'Save here',
+    'ui.saves.overwrite': 'Overwrite: {price}?',
+    'ui.saves.pay': 'Pay {price}?',
+    'ui.saves.load': 'Load',
+    'ui.saves.delete': 'Delete',
+    'ui.saves.deleteAsk': 'Delete?',
+    'ui.saves.openInVersion': 'Open in its version',
+    'ui.saves.openInVersionTitle': 'Opens the version of the game that made this save, in a new tab',
+    'ui.saves.oldVersionTitle': 'Made by an older version of the game',
+    'ui.saves.olderVersion': '{how} · older version',
+    'ui.saves.somewhere': 'Somewhere in the city',
+  },
+  es: {
+    'ui.saves.keysHint': 'Abrir y cerrar con {saveKey} o {loadKey} · Esc cierra',
+    'ui.saves.close': 'Cerrar',
+    'ui.saves.startToSave': 'Empieza una partida para guardar. Puedes cargar una partida desde aquí en cualquier momento.',
+    'ui.saves.stillLoad': '{why} Aún puedes cargar.',
+    'ui.saves.note': 'Guardar ahora cuesta {cost} (20% de tus {cash}, al menos {min}), un guardado cada 2 minutos. No se guarda mientras te buscan o durante un trabajo. Superar un trabajo o un frenesí guarda automáticamente gratis.',
+    'ui.saves.stay': 'Las partidas se quedan en este navegador. Una partida guardada antes de una actualización no puede cargarse con la versión nueva.',
+    'ui.saves.empty': 'Vacía',
+    'ui.saves.save': 'Guardar',
+    'ui.saves.saveHere': 'Guardar aquí',
+    'ui.saves.overwrite': '¿Sobrescribir por {price}?',
+    'ui.saves.pay': '¿Pagar {price}?',
+    'ui.saves.load': 'Cargar',
+    'ui.saves.delete': 'Borrar',
+    'ui.saves.deleteAsk': '¿Borrar?',
+    'ui.saves.openInVersion': 'Abrir en su versión',
+    'ui.saves.openInVersionTitle': 'Abre la versión del juego que creó esta partida, en una pestaña nueva',
+    'ui.saves.oldVersionTitle': 'Hecha con una versión anterior del juego',
+    'ui.saves.olderVersion': '{how} · versión anterior',
+    'ui.saves.somewhere': 'En algún lugar de la ciudad',
+  },
+  fr: {
+    'ui.saves.keysHint': 'Ouvrir et fermer avec {saveKey} ou {loadKey} · Échap ferme',
+    'ui.saves.close': 'Fermer',
+    'ui.saves.startToSave': 'Démarrez une partie pour sauvegarder. Vous pouvez charger une sauvegarde ici à tout moment.',
+    'ui.saves.stillLoad': '{why} Vous pouvez toujours charger.',
+    'ui.saves.note': 'Sauvegarder coûte {cost} (20% de vos {cash}, au moins {min}), une sauvegarde toutes les 2 minutes. Pas de sauvegarde pendant qu’on vous recherche ou pendant un contrat. Réussir un contrat ou une frénésie sauvegarde gratuitement.',
+    'ui.saves.stay': 'Les sauvegardes restent dans ce navigateur. Une sauvegarde faite avant une mise à jour ne peut pas être chargée par la nouvelle version.',
+    'ui.saves.empty': 'Vide',
+    'ui.saves.save': 'Sauvegarder',
+    'ui.saves.saveHere': 'Sauvegarder ici',
+    'ui.saves.overwrite': 'Écraser pour {price} ?',
+    'ui.saves.pay': 'Payer {price} ?',
+    'ui.saves.load': 'Charger',
+    'ui.saves.delete': 'Supprimer',
+    'ui.saves.deleteAsk': 'Supprimer ?',
+    'ui.saves.openInVersion': 'Ouvrir dans sa version',
+    'ui.saves.openInVersionTitle': 'Ouvre la version du jeu qui a créé cette sauvegarde, dans un nouvel onglet',
+    'ui.saves.oldVersionTitle': 'Faite avec une ancienne version du jeu',
+    'ui.saves.olderVersion': '{how} · ancienne version',
+    'ui.saves.somewhere': 'Quelque part dans la ville',
+  },
+});
 
 const el = (tag, attrs = {}, ...children) => {
   const e = document.createElement(tag);
@@ -17,18 +84,20 @@ const el = (tag, attrs = {}, ...children) => {
 /** "just now", "5 min ago", "yesterday", or a date. */
 export function ago(ms) {
   const s = Math.max(0, (Date.now() - ms) / 1000);
-  if (s < 60) return 'just now';
-  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
-  if (s < 172800) return 'yesterday';
-  return new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  if (s < 60) return t('ui.time.justNow');
+  if (s < 3600) return t('ui.time.minutesAgo', { n: num(Math.floor(s / 60)) });
+  if (s < 86400) return t('ui.time.hoursAgo', { n: num(Math.floor(s / 3600)) });
+  if (s < 172800) return t('ui.time.yesterday');
+  return new Intl.DateTimeFormat(lang(), { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(ms));
 }
 
 /** The card's lines: where ("Chinatown, Downtown") and how ("$12,500 · ★★ · 5 min ago"). */
 export function describe(save) {
   const l = save.label || {};
-  const where = [l.area, l.district].filter(Boolean).join(', ') || 'Somewhere in the city';
-  const how = [`$${(l.cash || 0).toLocaleString()}`, l.stars ? '★'.repeat(l.stars) : '', ago(save.savedAt)].filter(Boolean).join(' · ');
+  // l.district is a ui.district.* key; an old save may hold its already translated
+  // text instead (t() passes unknown keys through unchanged).
+  const where = [l.area, l.district ? t(l.district) : ''].filter(Boolean).join(', ') || t('ui.saves.somewhere');
+  const how = [money(l.cash || 0), l.stars ? '★'.repeat(l.stars) : '', ago(save.savedAt)].filter(Boolean).join(' · ');
   return { where, how };
 }
 
@@ -46,9 +115,11 @@ export class SavesScreen {
     this.open = false;
     this.picture = null;
     this.urls = [];
-    this.root = el('div', { id: 'saves-screen', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Saves', hidden: '' });
+    this.root = el('div', { id: 'saves-screen', role: 'dialog', 'aria-modal': 'true', 'aria-label': t('ui.tools.saves'), hidden: '' });
     this.root.addEventListener('click', (e) => { if (e.target === this.root) this.close(); });
     document.body.append(this.root);
+    // A language change while the screen is open re-renders it (aria-label included).
+    onLangChange(() => { if (this.open) this.render(); });
     states.screen = this;
   }
 
@@ -97,20 +168,25 @@ export class SavesScreen {
     this.oldVersions = new Set(kept.filter(Boolean));
     if (!this.open) return;
     this.dropUrls();
+    this.root.setAttribute('aria-label', t('ui.tools.saves'));
     const grid = el('div', { class: 'saves-grid' });
     for (const slot of SLOTS) grid.append(this.card(slot, saves.get(slot)));
     // the autosave, and a quick save from an earlier version: loadable, not saved to
     for (const slot of ['quick', 'auto']) if (saves.has(slot)) grid.prepend(this.card(slot, saves.get(slot)));
     this.root.replaceChildren(el('div', { class: 'saves-panel' },
       el('div', { class: 'saves-head' },
-        el('h2', {}, 'Saves'),
-        el('span', { class: 'saves-keys' }, `Open and close with ${SAVE_KEY} or ${LOAD_KEY} · Esc closes`),
-        el('button', { type: 'button', class: 'saves-close', 'aria-label': 'Close', onclick: () => this.close() }, '✕')),
-      el('p', { class: 'saves-note' }, !this.canSave ? 'Start a game to save. You can load a save from here at any time.'
-        : this.blocked ? `${this.blocked} You can still load.`
-          : `Saving now costs $${saveCost(this.states.cash()).toLocaleString()} (20% of your $${this.states.cash().toLocaleString()}, at least $${SAVE_MIN_COST.toLocaleString()}), one save every 2 minutes. No saving while wanted or during a job. Passing a job or a kill frenzy autosaves for free.`),
+        el('h2', {}, t('ui.tools.saves')),
+        el('span', { class: 'saves-keys' }, t('ui.saves.keysHint', { saveKey: SAVE_KEY, loadKey: LOAD_KEY })),
+        el('button', { type: 'button', class: 'saves-close', 'aria-label': t('ui.saves.close'), onclick: () => this.close() }, '✕')),
+      el('p', { class: 'saves-note' }, !this.canSave ? t('ui.saves.startToSave')
+        : this.blocked ? t('ui.saves.stillLoad', { why: this.blocked })
+          : t('ui.saves.note', {
+            cost: money(saveCost(this.states.cash())),
+            cash: money(this.states.cash()),
+            min: money(SAVE_MIN_COST),
+          })),
       grid,
-      el('p', { class: 'saves-note' }, 'Saves stay in this browser. A save made before an update can’t be loaded by the new version.')));
+      el('p', { class: 'saves-note' }, t('ui.saves.stay'))));
   }
 
   card(slot, save) {
@@ -121,28 +197,29 @@ export class SavesScreen {
       this.urls.push(url);
       picture = el('img', { src: url, alt: '' });
     } else {
-      picture = el('div', { class: 'save-blank' }, save ? '' : 'Empty');
+      picture = el('div', { class: 'save-blank' }, save ? '' : t('ui.saves.empty'));
     }
     const text = save ? describe(save) : null;
     const actions = el('div', { class: 'save-actions' });
     if (this.canSave && !this.blocked && SLOTS.includes(slot)) {
       // the first click asks for the price (the game is paused, so it is the price when you confirm)
-      const price = `$${saveCost(this.states.cash()).toLocaleString()}`;
-      actions.append(this.confirmButton(save ? 'Save here' : 'Save', save ? `Overwrite: ${price}?` : `Pay ${price}?`, () => this.saveTo(slot), 'primary'));
+      const price = money(saveCost(this.states.cash()));
+      actions.append(this.confirmButton(save ? t('ui.saves.saveHere') : t('ui.saves.save'),
+        save ? t('ui.saves.overwrite', { price }) : t('ui.saves.pay', { price }), () => this.saveTo(slot), 'primary'));
     }
     if (save) {
       const elsewhere = !save.current && this.oldVersions.has(save.build);
       const load = elsewhere
-        ? el('button', { type: 'button', title: 'Opens the version of the game that made this save, in a new tab',
-          onclick: () => window.open(`old/${save.build}/`, '_blank') }, 'Open in its version')
-        : el('button', { type: 'button', onclick: () => this.loadFrom(slot) }, 'Load');
-      if (!save.current && !elsewhere) { load.disabled = true; load.title = 'Made by an older version of the game'; }
-      actions.append(load, this.confirmButton('Delete', 'Delete?', async () => { await deleteSave(slot); this.render(); }, 'quiet'));
+        ? el('button', { type: 'button', title: t('ui.saves.openInVersionTitle'),
+          onclick: () => window.open(`old/${save.build}/`, '_blank') }, t('ui.saves.openInVersion'))
+        : el('button', { type: 'button', onclick: () => this.loadFrom(slot) }, t('ui.saves.load'));
+      if (!save.current && !elsewhere) { load.disabled = true; load.title = t('ui.saves.oldVersionTitle'); }
+      actions.append(load, this.confirmButton(t('ui.saves.delete'), t('ui.saves.deleteAsk'), async () => { await deleteSave(slot); this.render(); }, 'quiet'));
     }
     card.append(picture, el('div', { class: 'save-text' },
       el('span', { class: 'save-slot' }, slotName(slot)),
       text ? el('strong', {}, text.where) : '',
-      text ? el('small', {}, save.current ? text.how : `${text.how} · older version`) : ''),
+      text ? el('small', {}, save.current ? text.how : t('ui.saves.olderVersion', { how: text.how })) : ''),
     actions);
     return card;
   }

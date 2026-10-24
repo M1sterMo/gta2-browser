@@ -4,6 +4,8 @@
 // so the port's default controls, the map screen and the game's menus work unchanged.
 // Only pads with the browser's "standard" mapping are used.
 
+import { t } from './strings.js';
+
 const STICK_DEADZONE = 0.35;
 
 // Standard mapping button indices (DualSense names).
@@ -40,7 +42,7 @@ export const findPad = (pads) => pads.find((p) => p && p.connected && p.mapping 
  */
 export function padName(pad) {
   const name = pad.id.replace(/\s*\(.*\)\s*$/, '').replace(/^[0-9a-f]{1,4}-[0-9a-f]{1,4}-/i, '').trim();
-  return name || 'Controller';
+  return name || t('ui.controller');
 }
 
 /** Names of the pressed buttons; the left stick counts as the d-pad. */

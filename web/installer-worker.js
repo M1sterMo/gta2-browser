@@ -26,12 +26,16 @@ const SKIP = /\.(exe|dll|m3d|ico)$/; // the port never needs the original execut
 
 const progress = (stage, done = 0, total = 0) => self.postMessage({ type: 'progress', stage, done, total });
 
+// The worker has no access to the language: errors carry translation keys and
+// variables, and web/gamefiles.js turns them into text in the current language.
+const fail = (key, vars = {}) => Object.assign(new Error(key), { key, vars });
+
 async function unpack(installer) {
-  if (installer.byteLength !== SIZE) throw new Error(`The installer has the wrong size (${installer.byteLength} bytes).`);
+  if (installer.byteLength !== SIZE) throw fail('ui.files.badSize', { n: installer.byteLength });
   progress('verify');
   const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-1', installer))]
     .map((b) => b.toString(16).padStart(2, '0')).join('');
-  if (hash !== SHA1) throw new Error('The installer does not match the GTA2 freeware release (checksum mismatch).');
+  if (hash !== SHA1) throw fail('ui.files.checksum');
 
   progress('unpack');
   const log = [];
@@ -46,7 +50,7 @@ async function unpack(installer) {
   }
   // One run per module instance: unshield's option parsing keeps state between runs.
   const rc = U.callMain(['-d', '/out', '-g', GROUP_NAME, 'x', '/in/data1.hdr']);
-  if (rc !== 0 && rc !== undefined) throw new Error(`Unpacking failed (unshield ${rc}): ${log.slice(-3).join(' ')}`);
+  if (rc !== 0 && rc !== undefined) throw fail('ui.files.unpackFailed', { rc, log: log.slice(-3).join(' ') });
 
   const files = [];
   const transfer = [];
@@ -66,7 +70,7 @@ async function unpack(installer) {
     }
   };
   const dir = FS.readdir('/out').find((d) => GROUP.test(d));
-  if (!dir) throw new Error(`Unpacking produced no game files: ${log.slice(-3).join(' ')}`);
+  if (!dir) throw fail('ui.files.noFiles', { log: log.slice(-3).join(' ') });
   const root = `/out/${dir}`;
   walk(root, '');
   return { files, transfer };
@@ -79,6 +83,7 @@ self.onmessage = async (e) => {
   } catch (err) {
     // Hand the download back so a retry does not fetch 362 MB again.
     const installer = e.data.installer;
-    self.postMessage({ type: 'error', message: err.message || String(err), installer }, installer.byteLength ? [installer] : []);
+    self.postMessage({ type: 'error', key: err.key, vars: err.vars, message: err.message || String(err), installer },
+      installer.byteLength ? [installer] : []);
   }
 };

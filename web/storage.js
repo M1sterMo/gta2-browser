@@ -7,6 +7,32 @@
 // stored in IndexedDB in a single transaction, keeping the previous version
 // under "<path>#prev" so an interrupted or bad save can be recovered.
 
+import { registerDict, t } from './strings.js';
+
+registerDict({
+  en: {
+    'ui.storage.openFailed': 'Saves cannot be stored in this browser ({err}). Progress will be lost when the page closes; use Export saves to keep a copy.',
+    'ui.storage.deleteFailed': 'Could not delete {path}: {err}',
+    'ui.storage.saveFailed': 'Saving {path} failed ({err}). Free some browser storage and save again.',
+    'ui.storage.notExport': 'This is not a GTA2 browser save export.',
+    'ui.storage.txAborted': 'transaction aborted',
+  },
+  es: {
+    'ui.storage.openFailed': 'Las partidas no se pueden guardar en este navegador ({err}). El progreso se perderá al cerrar la página; usa Exportar partidas para conservar una copia.',
+    'ui.storage.deleteFailed': 'No se pudo borrar {path}: {err}',
+    'ui.storage.saveFailed': 'No se pudo guardar {path} ({err}). Libera espacio de almacenamiento del navegador y guarda de nuevo.',
+    'ui.storage.notExport': 'Esto no es una exportación de partidas del navegador de GTA2.',
+    'ui.storage.txAborted': 'transacción cancelada',
+  },
+  fr: {
+    'ui.storage.openFailed': 'Les sauvegardes ne peuvent pas être enregistrées dans ce navigateur ({err}). La progression sera perdue à la fermeture de la page ; utilisez Exporter les sauvegardes pour garder une copie.',
+    'ui.storage.deleteFailed': 'Impossible de supprimer {path} : {err}',
+    'ui.storage.saveFailed': 'L’enregistrement de {path} a échoué ({err}). Libérez de l’espace de stockage du navigateur et sauvegardez à nouveau.',
+    'ui.storage.notExport': 'Ce n’est pas une exportation de sauvegardes du navigateur GTA2.',
+    'ui.storage.txAborted': 'transaction interrompue',
+  },
+});
+
 const DB_NAME = 'gta2-port';
 const STORE = 'files';
 const QUIET_MS = 250;
@@ -22,7 +48,7 @@ function txDone(tx) {
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
-    tx.onabort = () => reject(tx.error || new Error('transaction aborted'));
+    tx.onabort = () => reject(tx.error || new Error(t('ui.storage.txAborted')));
   });
 }
 
@@ -46,8 +72,7 @@ export class SaveStorage {
       this.db = await promisify(req);
     } catch (err) {
       this.db = null;
-      this.report(`Saves cannot be stored in this browser (${err && err.message || err}). ` +
-        'Progress will be lost when the page closes; use Export saves to keep a copy.', true);
+      this.report(t('ui.storage.openFailed', { err: (err && err.message) || err }), true);
     }
   }
 
@@ -85,7 +110,7 @@ export class SaveStorage {
     if (!this.db) return;
     const tx = this.db.transaction(STORE, 'readwrite');
     tx.objectStore(STORE).delete(relPath);
-    txDone(tx).catch((err) => this.report(`Could not delete ${relPath}: ${err.message}`, true));
+    txDone(tx).catch((err) => this.report(t('ui.storage.deleteFailed', { path: relPath, err: err.message }), true));
   }
 
   async persist(relPath) {
@@ -105,7 +130,7 @@ export class SaveStorage {
       await txDone(tx);
       this.lastSaved = { path: relPath, bytes: data.length, at: Date.now() };
     } catch (err) {
-      this.report(`Saving ${relPath} failed (${err.message}). Free some browser storage and save again.`, true);
+      this.report(t('ui.storage.saveFailed', { path: relPath, err: err.message }), true);
     }
   }
 
@@ -140,7 +165,7 @@ export class SaveStorage {
   /** Restores files from an export, parsed (takes effect on the next start). */
   async importAll(parsed) {
     if (!parsed || parsed.format !== 'gta2-port-saves' || ![1, 2].includes(parsed.version)) {
-      throw new Error('This is not a GTA2 browser save export.');
+      throw new Error(t('ui.storage.notExport'));
     }
     const tx = this.db.transaction(STORE, 'readwrite');
     const store = tx.objectStore(STORE);
