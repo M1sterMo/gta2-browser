@@ -29,6 +29,19 @@ if [ -n "${GTA2_PASSWORD:-}" ]; then
 fi
 ssh "$target" 'test -f /opt/gta2/.env' || { echo "deploy_server: first deploy needs DOMAIN and GTA2_PASSWORD" >&2; exit 1; }
 
+# Keep the version that is live now: Saves-screen saves only load in the build that made them,
+# and the Saves screen opens old/<build>/ for them ("Open in its version"). If the live build is
+# about to be replaced and isn't archived yet, copy it into old/ first, so it goes back up with
+# the rest and no save is ever stranded.
+new_build=$(shasum -a 256 build/port/release/gta2.wasm | cut -c1-24)
+live_build=$(ssh "$target" 'test -f /opt/gta2/data/web/gta2.wasm && sha256sum /opt/gta2/data/web/gta2.wasm | cut -c1-24' || true)
+if [ -n "$live_build" ] && [ "$live_build" != "$new_build" ] && [ ! -f "build/port/release/old/$live_build/gta2.wasm" ]; then
+  echo "deploy_server: archiving the live build $live_build in old/"
+  mkdir -p "build/port/release/old/$live_build"
+  rsync -a --exclude old --exclude obj --exclude dev --exclude objects.rsp \
+    "$target:/opt/gta2/data/web/" "build/port/release/old/$live_build/"
+fi
+
 # readable by the container's user (the installer leaves some folders owner-only)
 rsync -az --delete --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r build/port/release/ "$target:/opt/gta2/data/web/"
 rsync -az --delete --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r --exclude '*.exe' --exclude '*.dll' --exclude '*.bik' game/ "$target:/opt/gta2/data/game/"

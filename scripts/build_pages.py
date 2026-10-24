@@ -19,6 +19,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 RELEASE = ROOT / 'build/port/release'
 SITE = ROOT / 'build/pages'
+ARCHIVE = RELEASE / 'old'  # every published build, for saves made with it (web/saves.js)
 
 # What goes out: the page, its scripts and the WebAssembly, licences, images and the vendored
 # peer-to-peer library. Never game files, developer tools or build products.
@@ -86,10 +87,56 @@ def version_urls():
     return v
 
 
+def build_id(wasm):
+    """A build's identity, as web/savestate.js records it in every save (SHA-256 of gta2.wasm, 24 hex)."""
+    return hashlib.sha256(wasm.read_bytes()).hexdigest()[:24]
+
+
+def keep_live_build():
+    """Before the site is rebuilt: the build it serves now goes into the release's old/ (once).
+
+    Saves-screen saves only load in the build that made them, and the Saves screen opens
+    old/<build>/ for them ("Open in its version"), so a published build is never dropped.
+    """
+    live = SITE / 'gta2.wasm'
+    if not live.exists() or build_id(live) == build_id(RELEASE / 'gta2.wasm'):
+        return
+    dest = ARCHIVE / build_id(live)
+    if (dest / 'gta2.wasm').exists():
+        return
+    dest.mkdir(parents=True)
+    for f in SITE.iterdir():
+        if f.is_file() and (f.name in FILES or f.suffix in SUFFIXES):
+            shutil.copy2(f, dest / f.name)
+    for d in DIRS:
+        if (SITE / d).is_dir():
+            shutil.copytree(SITE / d, dest / d)
+    print(f'build_pages: kept the live build {dest.name} in {ARCHIVE}')
+
+
+def copy_archive():
+    """Every archived build goes out too, under old/<build>/, in static mode and without img/."""
+    if not ARCHIVE.is_dir():
+        return
+    for build in sorted(ARCHIVE.iterdir()):
+        if not (build / 'gta2.wasm').exists():
+            continue
+        dest = SITE / 'old' / build.name
+        dest.mkdir(parents=True)
+        for f in build.iterdir():
+            if f.is_file() and (f.name in FILES or f.suffix in SUFFIXES):
+                shutil.copy2(f, dest / f.name)
+        for d in DIRS:
+            if (build / d).is_dir():
+                shutil.copytree(build / d, dest / d)
+        (dest / 'config.json').write_text(json.dumps({'static': True}) + '\n')
+
+
 def main():
     if not (RELEASE / 'gta2.wasm').exists():
         print('build_pages: build the release first (scripts/build_port.py --preset release)', file=sys.stderr)
         return 1
+    keep_live_build()
     if SITE.exists():
         keep_git = SITE / '.git'
         for item in SITE.iterdir():
@@ -102,6 +149,7 @@ def main():
     for d in DIRS:
         shutil.copytree(RELEASE / d, SITE / d)
     version_urls()
+    copy_archive()
     config = {'static': True}
     if STATS:
         config['stats'] = STATS

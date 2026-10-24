@@ -502,6 +502,12 @@ game's time limit stops at 60 minutes.
   - **Clock.** All the game's clocks go through `gta2_port_now_ms`, which continues from the saved time, so nothing sees time jump or run backwards.
   - **Also:** held keys are released, the frame timer is reset, and the map and radar are redrawn. The waypoint stays if it's the same district.
 - **Build check.** A snapshot only fits the build that made it, so each one records a hash of `gta2.wasm`. A save from another version is refused with a message. The Saves screen marks it "older version" and disables its Load button.
+- **Archived builds: no save is ever stranded** (2026-10-23). A change to the game's code (the WebAssembly) makes every Saves-screen save from before it an "older version". Each published build is therefore kept under `old/<build>/`, and the Saves screen opens a save there ("Open in its version").
+  - `scripts/deploy_server.sh` archives the server's live build before replacing it.
+  - `scripts/build_pages.py` keeps the public site's live build and publishes every archived build, in static mode and without `img/`.
+  - Church saves (the game's own) work in every version.
+  - **Rule:** before changing the game's code, say so, so the owner can church-save first.
+  - **History.** The build live from 15 to 21 October (`ed020b235c9c718f332c2028`) was replaced without being archived. It was rebuilt byte for byte from commit `244f8cc` and archived on 23 October.
 - **Card details.** The picture is a 320-pixel JPEG of the game canvas (it keeps its last frame), taken before the Saves screen covers the game. The label comes from `gta2_port_savestate_label`: the area name the game shows on screen, the map file (giving the district), cash, lives, multiplier, wanted stars and health. It's read after the memory copy, because finding the area moves the map's zone cursor.
 - **Paused saves.** A save made behind the Saves screen holds the paused flag, so a load always unpauses.
 - **Shell rule.** Shell code must not hold a pointer into the game's heap across an `await` (the map waits for its build to finish before a save or load).

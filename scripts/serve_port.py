@@ -14,6 +14,7 @@ import argparse
 import functools
 import http.server
 import json
+import re
 import os
 import sys
 import urllib.parse
@@ -31,6 +32,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def translate_path(self, path):
         clean = urllib.parse.unquote(path.split('?', 1)[0].split('#', 1)[0])
+        # an archived version (old/<build>/, Saves screen "Open in its version") gets the same game files
+        clean = re.sub(r'^/old/[0-9a-f]+/gamedata/', '/gamedata/', clean)
         if self.game_dir and clean.startswith('/gamedata/'):
             rel = clean[len('/gamedata/'):]
             if rel == 'manifest.json':

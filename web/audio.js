@@ -119,6 +119,9 @@ export class Gta2Audio {
     this.userVolume = 1;
     this.muted = false;
     this.radioOn = true; // R: the car radio's stations on or off (speech and effects keep playing)
+    // The same station files also play on foot, from places in the city (the music by a church, a
+    // club): R only silences them while the player is in a car, where they are the car's radio.
+    this.inCar = false;
     this.module = null;
     this.samples = new Map();
     this.bufferCache = new Map();
@@ -327,7 +330,14 @@ export class Gta2Audio {
   }
 
   applyStreamGain(st) {
-    st.gain.gain.value = st.radio && !this.radioOn ? 0 : Math.max(0, Math.min(127, st.volume)) / 127;
+    st.gain.gain.value = st.radio && !this.radioOn && this.inCar ? 0 : Math.max(0, Math.min(127, st.volume)) / 127;
+  }
+
+  /** Whether the player is in a car (the shell polls it): the radio setting only applies there. */
+  setInCar(inCar) {
+    if (inCar === this.inCar) return;
+    this.inCar = inCar;
+    for (const st of this.streams.values()) this.applyStreamGain(st);
   }
 
   /** Turns the car radio's stations on or off. */

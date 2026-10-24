@@ -492,16 +492,20 @@ const RADIO_KEY = 'gta2-port-radio';
 /**
  * Radio keys: R turns the car radio on or off (kept in this browser); T is the game's own
  * F1, the next station (single player; in co-op T opens the chat). Returns the key filter.
+ * inCar: whether the player is in a car. On foot the same station files play from places in the
+ * city, so R leaves them alone there.
  */
-function wireRadioKeys(Module, audio, coop) {
+function wireRadioKeys(Module, audio, coop, inCar) {
   const key = Module.cwrap('gta2_port_key', null, ['number', 'number', 'number', 'number']);
   let on = true;
   try { on = localStorage.getItem(RADIO_KEY) !== '0'; } catch { /* storage unavailable */ }
   audio.setRadio(on);
+  setInterval(() => audio.setInCar(inCar()), 200);
   return (e, down) => {
     const mod = e.metaKey || e.ctrlKey || e.altKey;
     if (e.code === 'KeyR' && !mod) {
-      if (down && !e.repeat) {
+      if (down && !e.repeat && !inCar()) toast('The radio is in cars: get in one, then press R');
+      else if (down && !e.repeat) {
         on = !on;
         audio.setRadio(on);
         try { localStorage.setItem(RADIO_KEY, on ? '1' : '0'); } catch { /* storage unavailable */ }
@@ -905,7 +909,7 @@ async function start(getFiles, { cacheAfterStart = false, coop = null, loadSlot 
     } else {
       $('saves-open').hidden = true;
     }
-    const radioKeys = wireRadioKeys(Module, audio, coop);
+    const radioKeys = wireRadioKeys(Module, audio, coop, () => !!(map.last && map.last.inCar));
     // The Controls screen: the game menu's Options (which launched GTA2 Manager) and the toolbar.
     const controls = new ControlsScreen({
       Module, keys: KEYS, defaults: PORT_CONTROLS, regPath: `${REG_ROOT}\\control`,
