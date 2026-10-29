@@ -7,7 +7,9 @@
 //   /api/crews        saved Gang Wars crews: the leaderboard (GET)
 //   /api/match        a finished Gang Wars match, for the crews' stats and reputation (POST)
 //   /relay            WebSocket: co-op rooms; every message goes through the server
-//                     (a star), so players connect on any network
+//                     (a star), so players connect on any network. Rooms live here
+//                     and nowhere else: the pages may only connect to this server
+//                     (Content-Security-Policy connect-src), never to public trackers.
 // HTTPS comes from a reverse proxy in front (Caddy on the VPS, see README.md).
 //
 // Environment:
@@ -32,6 +34,10 @@ const GAME_ROOT = resolve(process.env.GAME_ROOT || join(REPO, 'game'));
 const PASSWORD = process.env.GTA2_PASSWORD || '';
 const DATA_DIR = resolve(process.env.DATA_DIR || join(REPO, 'build/server-data')); // saved crews (writable)
 const PUBLIC_URL = (process.env.PUBLIC_URL || `http://${HOST}:${PORT}`).replace(/\/$/, '');
+// The browser refuses any connection but to this server ('self' and its WebSocket address, spelled
+// out for older Safari; data:/blob: for imported saves): co-op can't reach public trackers, even from
+// an archived version whose own config.json says "static".
+const CSP = `connect-src 'self' ${PUBLIC_URL.replace(/^http/, 'ws')} data: blob:`;
 
 if (!PASSWORD && !['127.0.0.1', 'localhost', '::1'].includes(HOST)) {
   console.error('server: set GTA2_PASSWORD to listen on anything but this computer');
@@ -120,6 +126,7 @@ async function gameManifest() {
 
 const server = createServer(async (req, res) => {
   try {
+    res.setHeader('Content-Security-Policy', CSP);
     const url = new URL(req.url, 'http://x');
     if (url.searchParams.has('invite')) {
       // chat apps sometimes glue punctuation (or Markdown's **) onto a pasted link: only the code counts
@@ -137,6 +144,9 @@ const server = createServer(async (req, res) => {
       return loggedIn(req) ? redirect(res, '/') : html(res, LOGIN_PAGE(false, url.searchParams.get('invite') === 'bad'));
     }
     if (!loggedIn(req)) return redirect(res, '/login');
+    // an archived version (old/<build>/, the Saves screen's "Open in its version") runs on this server
+    // too: its config, game files and crews are this server's (its own config.json is the static site's)
+    url.pathname = url.pathname.replace(/^\/old\/[0-9a-f]+\/(?=config\.json$|gamedata\/|api\/)/, '/');
 
     if (url.pathname === '/api/crews' && req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
@@ -202,16 +212,29 @@ function readBody(req, limit) {
 
 // ---- co-op relay ----
 //
-// A client joins a room with its own id: {t:'join', room, id}. The server answers
+// A client joins a room with its own id: {t:'join', room, id, key}. The server answers
 // {t:'peers', ids} and tells the others {t:'joined', id}; {t:'left', id} when a
-// socket closes. Text messages {t:'msg', to, data} and {t:'ping'|'pong', to, n}
-// go to one peer (to) or everyone else (to null) with `from` added. Binary
+// socket closes. A join with an id already in the room and the same key is that
+// player back on a new connection (the old one dropped): it replaces the old one,
+// and the others see a leave and a join. Every 15 seconds the server pings each
+// socket (one that missed the last ping is closed) and says {t:'hb'}, so the page
+// notices a dead connection too. Text messages {t:'msg', to, data} and
+// {t:'ping'|'pong', to, n} go to one peer (to) or everyone else (to null) with
+// `from` added. Binary
 // messages (game inputs) are [target id length, target id, payload]; they arrive
 // as [sender id length, sender id, payload].
 
 const rooms = new Map(); // room -> Map(id -> socket)
 const MAX_ROOM = 12;
 const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
+setInterval(() => {
+  for (const ws of wss.clients) {
+    if (!ws.alive) { ws.terminate(); continue; }
+    ws.alive = false;
+    ws.ping();
+    ws.send('{"t":"hb"}');
+  }
+}, 15000).unref();
 
 server.on('upgrade', (req, socket, head) => {
   if (new URL(req.url, 'http://x').pathname !== '/relay' || !loggedIn(req)) {
@@ -224,6 +247,8 @@ server.on('upgrade', (req, socket, head) => {
 function relay(ws) {
   let room = null;
   let id = null;
+  ws.alive = true;
+  ws.on('pong', () => { ws.alive = true; });
   const others = () => [...(rooms.get(room) || new Map())].filter(([peer]) => peer !== id);
   const target = (to) => (to ? others().filter(([peer]) => peer === to) : others());
 
@@ -241,11 +266,20 @@ function relay(ws) {
     let m;
     try { m = JSON.parse(data.toString()); } catch { return; }
     if (m.t === 'join' && !room && typeof m.room === 'string' && typeof m.id === 'string' && m.id.length < 64) {
-      const members = rooms.get(m.room) || new Map();
-      if (members.size >= MAX_ROOM) return ws.send(JSON.stringify({ t: 'full' }));
-      if (members.has(m.id)) return ws.send(JSON.stringify({ t: 'taken' }));
-      room = m.room.slice(0, 32);
+      const name = m.room.slice(0, 32);
+      const members = rooms.get(name) || new Map();
+      const old = members.get(m.id);
+      const back = old && typeof m.key === 'string' && m.key.length >= 16 && old.key === m.key;
+      if (old && !back) return ws.send(JSON.stringify({ t: 'taken' }));
+      if (!old && members.size >= MAX_ROOM) return ws.send(JSON.stringify({ t: 'full' }));
+      if (back) {
+        members.delete(m.id);
+        old.terminate();
+        for (const [, peer] of members) peer.send(JSON.stringify({ t: 'left', id: m.id }));
+      }
+      room = name;
       id = m.id;
+      ws.key = typeof m.key === 'string' ? m.key.slice(0, 64) : '';
       ws.send(JSON.stringify({ t: 'peers', ids: [...members.keys()] }));
       for (const [, peer] of members) peer.send(JSON.stringify({ t: 'joined', id }));
       members.set(id, ws);
@@ -258,7 +292,7 @@ function relay(ws) {
 
   ws.on('close', () => {
     const members = rooms.get(room);
-    if (!members) return;
+    if (!members || members.get(id) !== ws) return; // never joined, or replaced by a new connection
     members.delete(id);
     if (!members.size) rooms.delete(room);
     for (const [, peer] of members) peer.send(JSON.stringify({ t: 'left', id }));

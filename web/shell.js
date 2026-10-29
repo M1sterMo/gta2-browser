@@ -128,6 +128,8 @@ registerDict({
     'shell.roomHost': 'Room {code}: share the code. {count} of 6 players. Start when everyone is here.',
     'shell.roomGuest': 'In room {code}. Waiting for the host to start.',
     'shell.roomLooking': 'Looking for room {code}… Finding each other through the public trackers can take up to a minute.',
+    'shell.roomWaitingHost': 'Waiting for the host of room {code}… You join automatically as soon as the host has the room open on this server. If nothing happens, ask for a fresh link.',
+    'shell.roomReconnecting': 'Lost the connection to the server. Reconnecting to room {code}…',
     'shell.enterCode': 'Enter the room code you were given.',
     'shell.connectFailed': 'Could not set up the connection: {message}',
     'shell.startingMatch': 'Starting {mode} in {district} with {count} players…',
@@ -242,6 +244,8 @@ registerDict({
     'shell.roomHost': 'Sala {code}: comparte el código. {count} de 6 jugadores. Empieza cuando estén todos.',
     'shell.roomGuest': 'En la sala {code}. Esperando a que el anfitrión empiece.',
     'shell.roomLooking': 'Buscando la sala {code}… Encontrarse a través de los trackers públicos puede tardar un minuto.',
+    'shell.roomWaitingHost': 'Esperando al anfitrión de la sala {code}… Entrarás automáticamente en cuanto el anfitrión abra la sala en este servidor. Si no pasa nada, pide un enlace nuevo.',
+    'shell.roomReconnecting': 'Se perdió la conexión con el servidor. Reconectando a la sala {code}…',
     'shell.enterCode': 'Escribe el código de la sala que te dieron.',
     'shell.connectFailed': 'No se pudo establecer la conexión: {message}',
     'shell.startingMatch': 'Empezando {mode} en {district} con {count} jugadores…',
@@ -361,6 +365,8 @@ registerDict({
     'shell.roomHost': 'Salle {code} : partagez le code. {count} joueurs sur 6. Démarrez quand tout le monde est là.',
     'shell.roomGuest': 'Dans la salle {code}. En attente du démarrage par l\'hôte.',
     'shell.roomLooking': 'Recherche de la salle {code}… Se trouver via les trackers publics peut prendre une minute.',
+    'shell.roomWaitingHost': 'En attente de l\'hôte de la salle {code}… Vous entrerez automatiquement dès que l\'hôte aura ouvert la salle sur ce serveur. Si rien ne se passe, demandez un nouveau lien.',
+    'shell.roomReconnecting': 'Connexion au serveur perdue. Reconnexion à la salle {code}…',
     'shell.enterCode': 'Saisissez le code de la salle qu\'on vous a donné.',
     'shell.connectFailed': 'Impossible d\'établir la connexion : {message}',
     'shell.startingMatch': 'Démarrage de {mode} dans {district} avec {count} joueurs…',
@@ -1759,10 +1765,11 @@ function wireCoopLobby() {
       link.hash = lobby.code;
       $('coop-link').value = link.href;
     }
-    $('coop-state').textContent = !lobby ? '' : lobby.host
-      ? t('shell.roomHost', { code: lobby.code, count: lobby.players.length })
-      : lobby.players.length ? t('shell.roomGuest', { code: lobby.code })
-        : t('shell.roomLooking', { code: lobby.code });
+    // on our server the room lives there and nowhere else (no public trackers)
+    $('coop-state').textContent = !lobby ? '' : lobby.offline ? t('shell.roomReconnecting', { code: lobby.code })
+      : lobby.host ? t('shell.roomHost', { code: lobby.code, count: lobby.players.length })
+        : lobby.players.length ? t('shell.roomGuest', { code: lobby.code })
+          : t(lobby.t instanceof ServerTransport ? 'shell.roomWaitingHost' : 'shell.roomLooking', { code: lobby.code });
   };
   const open = async (host) => {
     const name = (nameInput.value || t('shell.defaultName')).trim().slice(0, 16);

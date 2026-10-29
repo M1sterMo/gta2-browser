@@ -67,7 +67,7 @@ model and replaces the transport.
   | Transport | Used | How |
   |---|---|---|
   | `WebRtcTransport` | Public site, any static host | Peers find each other through public WebTorrent trackers ([Trystero](https://github.com/dmotz/trystero)). After that, traffic goes directly between browsers. The room code also encrypts the set-up. |
-  | `ServerTransport` | Private game server | A WebSocket relay at `/relay`. It works on every network. |
+  | `ServerTransport` | Private game server | A WebSocket relay at `/relay`. It works on every network. Rooms exist only on the server: its pages may connect to nothing else (CSP `connect-src`), so no public trackers. A dropped connection reconnects by itself, so a lobby forms again on its own. |
   | `LocalTransport` | Testing (`?coop&local`) | A BroadcastChannel between tabs of one browser. |
 
 - **Lobby** (`CoopLobby` in `web/net.js`). The host is the authority: it owns the roster,
@@ -101,7 +101,8 @@ On the live server, two tabs ran at a 13 ms round trip with matching checksums.
 
 **Known limits:**
 - 6 players (the original's limit).
-- A player who disconnects is dropped after about 6 seconds and can't rejoin.
+- A player who disconnects during a match is dropped after about 6 seconds and can't rejoin
+  (in the lobby, the private server's relay reconnects by itself).
 - Passengers can't shoot from the car (yet).
 - Finding peers through public trackers takes 10 to 60 seconds.
 

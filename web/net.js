@@ -115,29 +115,52 @@ export class LocalTransport {
   leave() { try { this.channel.postMessage({ kind: 'bye', from: this.id }); this.channel.close(); } catch { /* closed */ } }
 }
 
-/** Players on our game server (D21): everything goes through its relay. */
+// The server says {t:'hb'} every 15 seconds; this long without a word, the connection is dead
+// (a laptop that slept, a changed network) even if the browser has not noticed yet.
+const SERVER_SILENCE_MS = 45000;
+
+/**
+ * Players on our game server (D21): everything goes through its relay. A dropped connection
+ * comes back by itself, in the same room under the same id: to the others that is a leave and a
+ * join, so a lobby forms again on its own (in a match, the others have dropped this player).
+ */
 export class ServerTransport {
   static create(room, path = '/relay') {
     const url = new URL(path, location.href);
     url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    return ServerTransport.connect(url).then((ws) => new ServerTransport(ws, room, url));
+  }
+
+  static connect(url) {
     const ws = new WebSocket(url);
     ws.binaryType = 'arraybuffer';
     return new Promise((ok, fail) => {
-      ws.onopen = () => ok(new ServerTransport(ws, room));
+      ws.onopen = () => ok(ws);
       ws.onerror = () => fail(new Error(t('ui.net.serverNoAnswer')));
     });
   }
 
-  constructor(ws, room) {
-    this.ws = ws;
+  constructor(ws, room, url) {
+    this.url = url;
     this.room = room;
     this.id = randomId();
+    this.key = randomId() + randomId(); // proves to the server that a rejoin under this id is us
     this.peers = new Set();
     this.onMessage = () => {};
     this.onPeerJoined = () => {};
     this.onPeerLeft = () => {};
+    this.onConnection = () => {}; // (connected): the link to the server dropped, or is back
     this.pings = new Map();
+    this.attach(ws);
+    this.watchdog = setInterval(() => { if (this.ws && Date.now() - this.heard > SERVER_SILENCE_MS) this.lost(this.ws); }, 5000);
+  }
+
+  attach(ws) {
+    this.ws = ws;
+    this.heard = Date.now();
     ws.onmessage = (e) => {
+      if (ws !== this.ws) return; // a connection already given up on
+      this.heard = Date.now();
       if (e.data instanceof ArrayBuffer) {
         const b = new Uint8Array(e.data);
         const from = new TextDecoder().decode(b.subarray(1, 1 + b[0]));
@@ -147,13 +170,36 @@ export class ServerTransport {
       const m = JSON.parse(e.data);
       if (m.t === 'peers') m.ids.forEach((id) => this.peerJoined(id));
       else if (m.t === 'joined') this.peerJoined(m.id);
-      else if (m.t === 'left') { this.peers.delete(m.id); this.onPeerLeft(m.id); }
+      else if (m.t === 'left') { if (this.peers.delete(m.id)) this.onPeerLeft(m.id); }
       else if (m.t === 'msg') this.onMessage(m.from, m.data);
       else if (m.t === 'ping') this.ws.send(JSON.stringify({ t: 'pong', to: m.from, n: m.n }));
       else if (m.t === 'pong') { const done = this.pings.get(m.n); if (done) { this.pings.delete(m.n); done(); } }
       else if (m.t === 'full' || m.t === 'taken') this.onRefused?.(m.t);
     };
-    ws.onclose = () => { for (const id of this.peers) this.onPeerLeft(id); this.peers.clear(); };
+    ws.onclose = () => this.lost(ws);
+  }
+
+  /** The connection is gone: everyone has left as far as we know, and we dial again (unless we left). */
+  lost(ws) {
+    if (ws !== this.ws) return;
+    this.ws = null;
+    try { ws.close(); } catch { /* closed */ }
+    for (const id of this.peers) this.onPeerLeft(id);
+    this.peers.clear();
+    if (this.closed) return;
+    this.onConnection(false);
+    this.reconnect(1000);
+  }
+
+  async reconnect(wait) {
+    await new Promise((ok) => setTimeout(ok, wait));
+    if (this.closed) return;
+    let ws;
+    try { ws = await ServerTransport.connect(this.url); } catch { this.reconnect(Math.min(wait * 2, 10000)); return; }
+    if (this.closed) { ws.close(); return; }
+    this.attach(ws);
+    this.join();
+    this.onConnection(true);
   }
 
   peerJoined(id) {
@@ -162,10 +208,10 @@ export class ServerTransport {
     this.onPeerJoined(id);
   }
 
-  join() { this.ws.send(JSON.stringify({ t: 'join', room: this.room, id: this.id })); }
+  join() { this.ws.send(JSON.stringify({ t: 'join', room: this.room, id: this.id, key: this.key })); }
 
   send(to, data) {
-    if (this.ws.readyState !== WebSocket.OPEN) return;
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
     if (data instanceof Uint8Array) {
       const target = new TextEncoder().encode(to || '');
       const out = new Uint8Array(1 + target.length + data.length);
@@ -183,13 +229,18 @@ export class ServerTransport {
     const n = Math.random();
     const t0 = performance.now();
     return new Promise((ok, fail) => {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) { fail(new Error(t('ui.net.serverNoAnswer'))); return; }
       this.pings.set(n, () => ok(performance.now() - t0));
       this.ws.send(JSON.stringify({ t: 'ping', to: id, n }));
       setTimeout(() => { if (this.pings.delete(n)) fail(new Error(t('ui.net.noAnswer'))); }, 5000);
     });
   }
 
-  leave() { try { this.ws.close(); } catch { /* closed */ } }
+  leave() {
+    this.closed = true;
+    clearInterval(this.watchdog);
+    try { this.ws?.close(); } catch { /* closed */ }
+  }
 }
 
 const APP_ID = 'gta2-browser-port-coop-1';
@@ -274,12 +325,15 @@ export class CoopLobby {
     transport.onPeerJoined = (id) => { if (!this.host) this.t.send(id, { lobby: 'hello', name: this.name }); };
     transport.onPeerLeft = (id) => this.left(id);
     transport.onMessage = (from, data) => this.message(from, data);
+    // ServerTransport: the link to the server dropped (it reconnects by itself); shown in the lobby
+    transport.onConnection = (up) => { this.offline = !up; this.onChange(); };
     transport.join();
     // the host's language follows the host's page until the match starts
     if (host) onLangChange((code) => { if (!this.started) this.setSettings({ lang: code }); });
   }
 
   message(from, data) {
+    if (this.gone.has(from)) return; // dropped from the match (a reconnected player is not let back in)
     if (data instanceof Uint8Array || data instanceof ArrayBuffer) {
       if (!this.slots || !(from in this.slots)) return;
       const bytes = new Uint8Array(data);
