@@ -19,7 +19,7 @@
 //   crews; writable; default build/server-data).
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { readdir, stat } from 'node:fs/promises';
+import { readFile, readdir, stat } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { extname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -233,6 +233,11 @@ function readBody(req, limit) {
 // they are too old; {t:'leave-match'} drops the player from the clock at once.
 
 const { MatchClock } = await import(pathToFileURL(join(WEB_ROOT, 'clock.js')).href);
+// The build this server serves (build_pages.py: shell.js?v=<hash>; 'dev' unversioned). A page of
+// another build may not join a room: an old tab would play the match with older code (another
+// netcode, other checksums), and nothing on its side would say so. It gets {t:'outdated'}.
+const SERVER_BUILD = await readFile(join(WEB_ROOT, 'index.html'), 'utf8')
+  .then((html) => (/shell\.js\?v=([0-9a-f]+)/.exec(html) || [])[1] || 'dev', () => 'dev');
 const CLOCK = '@clock';
 const CLOCK_FRAME = Buffer.concat([Buffer.from([CLOCK.length]), Buffer.from(CLOCK)]);
 const clocks = new Map(); // room -> {clock, ids, timer}
@@ -323,7 +328,10 @@ function relay(ws) {
     }
     let m;
     try { m = JSON.parse(data.toString()); } catch { return; }
-    if (m.t === 'join' && !room && typeof m.room === 'string' && typeof m.id === 'string' && m.id.length < 64) {
+    if (m.t === 'join' && !room && m.build !== SERVER_BUILD) {
+      ws.send(JSON.stringify({ t: 'outdated' }));
+      ws.close();
+    } else if (m.t === 'join' && !room && typeof m.room === 'string' && typeof m.id === 'string' && m.id.length < 64) {
       const name = m.room.slice(0, 32);
       const members = rooms.get(name) || new Map();
       const old = members.get(m.id);
@@ -379,7 +387,7 @@ function relay(ws) {
 const crews = await new CrewStore(DATA_DIR).load();
 
 server.listen(PORT, HOST, () => {
-  console.log(`server: http://${HOST}:${PORT} (game ${WEB_ROOT}, files ${GAME_ROOT})`);
+  console.log(`server: http://${HOST}:${PORT} (game ${WEB_ROOT}, build ${SERVER_BUILD}, files ${GAME_ROOT})`);
   if (PASSWORD) console.log(`server: invite link ${PUBLIC_URL}/?invite=${INVITE}`);
   else console.log('server: no password (this computer only)');
 });

@@ -192,6 +192,7 @@ export class ServerTransport {
       else if (m.t === 'pong') { const done = this.pings.get(m.n); if (done) { this.pings.delete(m.n); done(); } }
       else if (m.t === 'full' || m.t === 'taken') this.onRefused?.(m.t);
       else if (m.t === 'resume-failed') this.onResumeFailed?.();
+      else if (m.t === 'outdated') { this.closed = true; this.onOutdated?.(); } // the server has a newer build
     };
     ws.onclose = () => this.lost(ws);
   }
@@ -233,7 +234,8 @@ export class ServerTransport {
     this.onPeerJoined(id);
   }
 
-  join() { this.ws.send(JSON.stringify({ t: 'join', room: this.room, id: this.id, key: this.key })); }
+  // build: the server only lets in pages of the build it serves
+  join() { this.ws.send(JSON.stringify({ t: 'join', room: this.room, id: this.id, key: this.key, build: BUILD })); }
 
   send(to, data) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
@@ -405,6 +407,8 @@ export class CoopLobby {
       this.onChange();
     };
     transport.onResumeFailed = () => this.clockGone();
+    // the server serves a newer build: the lobby asks for a reload; a match ends (the page then reloads)
+    transport.onOutdated = () => { this.outdated = true; if (this.started) this.clockGone(); this.onChange(); };
     transport.join();
     // the host's language follows the host's page until the match starts
     if (host) onLangChange((code) => { if (!this.started) this.setSettings({ lang: code }); });
