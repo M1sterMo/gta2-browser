@@ -614,10 +614,13 @@ export class CoopLobby {
     if (!this.host || this.startProblem()) return;
     const slowest = Math.max(0, ...this.players.map((p) => p.ping || 0));
     const s = this.settings;
-    // ?clock=0 on the host's page: the original lockstep without the match clock (for comparing)
+    // ?clock=0 on the host's page: the original lockstep without the match clock (for comparing);
+    // ?predict=0: the clock without prediction (web/rollback.js), every game a round trip behind
+    const params = new URLSearchParams(location.search);
+    const clock = params.get('clock') !== '0';
     const match = {
       ...s, id: `${randomId()}${Date.now().toString(36)}`, players: this.players, delay: inputDelayFor(slowest),
-      crews: s.mode === 'wars' ? this.crews() : [], clock: new URLSearchParams(location.search).get('clock') !== '0',
+      crews: s.mode === 'wars' ? this.crews() : [], clock, predict: clock && params.get('predict') !== '0',
     };
     for (const p of this.players) if (p.id !== this.t.id) this.send(p.id, { lobby: 'start', match });
     this.begin(match);

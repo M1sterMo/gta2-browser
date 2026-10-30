@@ -11,6 +11,9 @@
 //     [--ff]                      friendly fire (players can hurt each other)
 //     [--leave-early 2]           player 2 closes the tab as the match starts (while it loads)
 //     [--profiles DIR]            browser profiles (kept, so the game files download once)
+//     [--nopredict]               the clock without prediction (web/rollback.js)
+//     [--latency N]               at the end, N trials per player: a key press until the player's
+//                                 drawn position moves (the input lag one sees)
 //
 // Needs Playwright (npm i -g playwright) and the game files in game/. Exit code 1 on a failed check.
 import { spawn } from 'node:child_process';
@@ -42,6 +45,8 @@ const DROP = perPlayer('drop');
 const NOCLOCK = args.includes('--noclock');
 const FF = args.includes('--ff');
 const LEAVE_EARLY = opt('leave-early', null) === null ? -1 : Number(opt('leave-early'));
+const NOPREDICT = args.includes('--nopredict');
+const LATENCY = Number(opt('latency', 0));
 
 const server = spawn(process.execPath, [join(REPO, 'server/server.mjs')], {
   env: { ...process.env, PORT: String(PORT), HOST: '127.0.0.1', GTA2_PASSWORD: '', DATA_DIR: join(PROFILES, 'server-data') },
@@ -96,6 +101,7 @@ for (let i = 0; i < PLAYERS; i++) {
   const params = new URLSearchParams({ coop: '' });
   if (NETSIM[i]) params.set('netsim', NETSIM[i]);
   if (NOCLOCK && i === 0) params.set('clock', '0');
+  if (NOPREDICT && i === 0) params.set('predict', '0');
   await page.goto(`${base}?${params.toString().replace('coop=', 'coop')}`);
   players.push(p);
 }
@@ -115,7 +121,7 @@ await host.page.waitForFunction((n) => window.gta2Lobby.players.length === n, PL
 await host.page.waitForFunction(() => !document.getElementById('coop-start').disabled, null, { timeout: 60000 });
 if (FF) await host.page.check('#coop-ff');
 await host.page.click('#coop-start');
-log(`room ${code}: ${PLAYERS} players, ${NOCLOCK ? 'old lockstep' : 'match clock'}${FF ? ', friendly fire' : ''}; started`);
+log(`room ${code}: ${PLAYERS} players, ${NOCLOCK ? 'old lockstep' : NOPREDICT ? 'match clock' : 'match clock with prediction'}${FF ? ', friendly fire' : ''}; started`);
 if (LEAVE_EARLY >= 0) {
   await new Promise((ok) => setTimeout(ok, 300));
   await players[LEAVE_EARLY].ctx.close();
@@ -144,6 +150,7 @@ for (const p of players) {
     const keys = ['KeyW', 'KeyW', 'KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyL', 'Space'];
     const press = (code, down) => window.dispatchEvent(new KeyboardEvent(down ? 'keydown' : 'keyup', { code }));
     const step = () => {
+      if (window.walkerOff) return;
       const held = [...new Set(Array.from({ length: 1 + Math.floor(Math.random() * 2) }, () => keys[Math.floor(Math.random() * keys.length)]))];
       held.forEach((k) => press(k, true));
       setTimeout(() => { held.forEach((k) => press(k, false)); setTimeout(step, 50 + Math.random() * 300); }, 150 + Math.random() * 900);
@@ -160,7 +167,9 @@ const sample = (p) => p.page.evaluate(() => {
   const w = c ? M.HEAP32.subarray(c >> 2, (c >> 2) + 3) : [0, 0, 0];
   const b = document.getElementById('coop-banner');
   const at = window.gta2.map.last || {};
-  return { frame: v[4], pending: v[3], buffered: w[0], target: w[1], waits: w[2], banner: b && !b.hidden ? b.textContent : '', x: at.x, y: at.y };
+  const rb = window.gta2.coop && window.gta2.coop.rollback;
+  return { frame: v[4], pending: v[3], buffered: w[0], target: w[1], waits: w[2], banner: b && !b.hidden ? b.textContent : '', x: at.x, y: at.y,
+    rb: rb ? { ...rb.stats, confirmed: rb.confirmed, played: rb.played } : null };
 }).catch(() => null);
 
 // the run, with the scheduled troubles
@@ -179,7 +188,8 @@ while ((performance.now() - startAt) / 1000 < SECONDS) {
   for (const e of events.filter((x) => !x.done && s >= x.at)) { e.done = true; e.run(); }
   const got = await Promise.all(players.map(sample));
   got.forEach((g, k) => { if (g) history[players[k].i].push({ s, ...g }); });
-  if (Math.round(s) % 10 === 0) log(got.map((g, k) => (g ? `P${players[k].i} tick ${g.frame} buf ${g.buffered}/${g.target} waits ${g.waits}${g.banner ? ` "${g.banner.slice(0, 40)}"` : ''}` : `P${players[k].i} -`)).join(' | '));
+  const rbText = (r) => (r ? ` ahead ${r.ahead} margin ${r.margin} step ${r.stepMs.toFixed(1)}/${r.maxStepMs.toFixed(1)} ms` : '');
+  if (Math.round(s) % 10 === 0) log(got.map((g, k) => (g ? `P${players[k].i} tick ${g.frame} buf ${g.buffered}/${g.target} waits ${g.waits}${rbText(g.rb)}${g.banner ? ` "${g.banner.slice(0, 40)}"` : ''}` : `P${players[k].i} -`)).join(' | '));
   await new Promise((ok) => setTimeout(ok, 1000));
 }
 
@@ -209,6 +219,68 @@ for (const p of players) {
 }
 const ticks = await Promise.all(players.map(sample));
 log('final ticks', ticks.map((g) => g && g.frame).join(', '));
+for (const [k, g] of ticks.entries()) {
+  if (g && g.rb) {
+    const r = g.rb;
+    if (process.env.RB_TRACE) console.log(JSON.stringify(await players[k].page.evaluate(() => [window.gta2.coop.rollback.trace, window.gta2.coop.rollback.wrong]).catch(() => null)));
+    log(`P${players[k].i} prediction: ${r.steps} steps, ${r.replays} replays, own inputs late ${r.late} (guessed wrong ${r.ownWrong}), others guessed wrong ${r.othersWrong}, ` +
+      `ahead ${r.ahead}, step ${r.stepMs.toFixed(1)} ms (max ${r.maxStepMs.toFixed(1)}), margin ${r.margin} ms`);
+  }
+}
+
+// input lag as one sees it: from a key press until the player's drawn position moves
+if (LATENCY > 0) {
+  for (const p of players) await p.page.evaluate(() => { window.walkerOff = true; }).catch(() => {});
+  await new Promise((ok) => setTimeout(ok, 1500));
+  for (const p of players) {
+    const lags = [];
+    for (let n = 0; n < LATENCY; n++) {
+      const ms = await p.page.evaluate(async (n) => {
+        const press = (code, down) => window.dispatchEvent(new KeyboardEvent(down ? 'keydown' : 'keyup', { code }));
+        const pos = () => { const m = window.gta2.map.last || {}; return `${m.x},${m.y},${m.heading}`; };
+        // stand still first: a trial counts only after half a second without any change
+        let before = pos();
+        let still = performance.now();
+        const t1 = performance.now();
+        while (performance.now() - still < 500) {
+          await new Promise((ok) => requestAnimationFrame(ok));
+          if (pos() !== before) { before = pos(); still = performance.now(); }
+          if (performance.now() - t1 > 5000) return null;
+        }
+        const key = n % 2 ? 'KeyA' : 'KeyD'; // turning shows on the first tick it is played
+        // with prediction: when the page took the input (its tick), and when that tick was played
+        const rb = window.gta2.coop && window.gta2.coop.rollback;
+        let sampledAt = null;
+        let sampledTick = null;
+        let tickAtVisible = null;
+        const orig = rb && rb.sampleFn;
+        if (rb) rb.sampleFn = () => { const b = orig(); if (sampledAt === null && (b & 0xfff)) { sampledAt = performance.now(); sampledTick = rb.played; } return b; };
+        const t0 = performance.now();
+        press(key, true);
+        const lag = await new Promise((ok) => {
+          const f = () => {
+            if (pos() !== before) { tickAtVisible = rb ? rb.played : null; ok(performance.now() - t0); } else if (performance.now() - t0 > 3000) ok(null); else requestAnimationFrame(f);
+          };
+          requestAnimationFrame(f);
+        });
+        if (rb) rb.sampleFn = orig;
+        await new Promise((ok) => setTimeout(ok, 200));
+        press(key, false);
+        if (lag !== null && sampledAt !== null) window.lagParts = [...(window.lagParts || []), [sampledAt - t0, lag, tickAtVisible - sampledTick]];
+        return lag;
+      }, n).catch(() => null);
+      if (ms !== null) lags.push(ms);
+    }
+    lags.sort((a, b) => a - b);
+    const parts = await p.page.evaluate(() => window.lagParts || []).catch(() => []);
+    if (parts.length) {
+      const med = (k) => parts.map((x) => x[k]).sort((a, b) => a - b)[parts.length >> 1];
+      log(`${p.name}: key to taken ${med(0).toFixed(0)} ms, taken to seen ${(med(1) - med(0)).toFixed(0)} ms, ticks played from taken to seen ${med(2)}`);
+    }
+    log(`${p.name}${NETSIM[p.i] ? ` (netsim ${NETSIM[p.i]})` : ''}: input lag median ${lags.length ? lags[lags.length >> 1].toFixed(0) : '-'} ms ` +
+      `(min ${lags.length ? lags[0].toFixed(0) : '-'}, max ${lags.length ? lags[lags.length - 1].toFixed(0) : '-'}, ${lags.length}/${LATENCY} moved)`);
+  }
+}
 
 for (const p of players) await p.ctx.close();
 server.kill();

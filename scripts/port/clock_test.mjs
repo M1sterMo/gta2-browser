@@ -1,7 +1,7 @@
 // Unit tests for web/clock.js (the co-op match clock): node --test scripts/port/clock_test.mjs
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { HOLD_TICKS, LEAVE_AFTER_MS, MAX_QUEUE, MatchClock, START_WAIT_MS, TICK_MS, TRIM_AFTER, readBundle } from '../../web/clock.js';
+import { HOLD_TICKS, HOLD_TICKS_PREDICTING, LEAVE_AFTER_MS, MAX_QUEUE, MatchClock, STAMPED, START_WAIT_MS, TICK_MS, TRIM_AFTER, readBundle } from '../../web/clock.js';
 
 const FORWARD = 0x1;
 const ATTACK = 0x10;
@@ -159,4 +159,89 @@ test('falls behind (a blocked event loop) and catches up with every tick, none s
   clock.poll();
   advance(30);
   assert.deepEqual(sent.map((b) => b.tick), Array.from({ length: 31 }, (_, i) => i));
+});
+
+// prediction (web/rollback.js): inputs stamped with the tick the game played them at
+const stamped = (bits, tick, seq = 0) => {
+  const b = new Uint8Array(10);
+  b[0] = STAMPED;
+  b[1] = seq;
+  const v = new DataView(b.buffer);
+  v.setUint32(2, bits >>> 0, true);
+  v.setUint32(6, tick, true);
+  return b;
+};
+
+test('a stamped input is used at its own tick, and the bundle says how early it came', () => {
+  const { clock, sent, advance } = harness(2);
+  clock.input(0, stamped(0, 0));
+  clock.input(1, stamped(0, 0));
+  clock.poll(); // tick 0 out
+  clock.input(0, stamped(FORWARD, 3)); // played 3 ticks ahead
+  advance(1); // tick 1
+  advance(1); // tick 2
+  advance(1); // tick 3
+  assert.deepEqual(sent.map((b) => bitsOf(b, 0).bits), [0, 0, 0, FORWARD], 'only at its tick');
+  const margin = sent[1].margins[sent[1].entries.findIndex((e) => e.slot === 0)];
+  assert.ok(margin > 60 && margin <= 100, `about 2 ticks early at tick 1's bundle, got ${margin}`);
+  assert.equal(sent[2].margins[0], null, 'no input since: no margin');
+});
+
+test('a late stamped input counts from the next tick; its key event is never lost', () => {
+  const { clock, sent, advance } = harness(2);
+  clock.input(0, stamped(0, 0));
+  clock.input(1, stamped(0, 0));
+  clock.poll(); // tick 0
+  advance(2); // ticks 1, 2 made up
+  clock.input(0, stamped(FORWARD | ESC_PRESS, 1)); // for tick 1, which has gone out
+  clock.input(0, stamped(ATTACK, 3)); // in time for tick 3
+  advance(1); // tick 3
+  advance(1); // tick 4
+  assert.equal(bitsOf(sent[3], 0).bits, (ATTACK | ESC_PRESS) >>> 0, "tick 3: its own held controls, the late key event");
+  const m = sent[3].margins[0];
+  assert.ok(m < 0, `the late one shows as late: ${m}`);
+  assert.equal(bitsOf(sent[4], 0).bits, ATTACK, 'then held as usual (made up)');
+});
+
+test('a late stamped input with no newer one holds its controls at the next tick', () => {
+  const { clock, sent, advance } = harness(2);
+  clock.input(0, stamped(0, 0));
+  clock.input(1, stamped(0, 0));
+  clock.poll();
+  advance(1); // tick 1 made up
+  clock.input(0, stamped(FORWARD, 1));
+  advance(1); // tick 2
+  assert.equal(bitsOf(sent[2], 0).bits, FORWARD);
+});
+
+test('bundles without margins (an older clock) still read', () => {
+  const b = new Uint8Array(12);
+  b[0] = 0x42;
+  b[5] = 1;
+  b[6] = 0;
+  new DataView(b.buffer).setUint32(8, FORWARD, true);
+  assert.deepEqual(readBundle(b).margins, [null]);
+});
+
+test('a game with prediction has its held controls held longer when its inputs are late (a spike)', () => {
+  const { clock, sent, advance } = harness(2);
+  clock.input(0, stamped(FORWARD, 0));
+  clock.input(1, inputMsg(FORWARD));
+  clock.poll(); // tick 0
+  advance(HOLD_TICKS_PREDICTING + 2);
+  const held = (slot) => sent.slice(1).map((b) => bitsOf(b, slot).bits);
+  assert.deepEqual(held(0), [...Array(HOLD_TICKS_PREDICTING).fill(FORWARD), 0, 0], 'predicting: 500 ms');
+  assert.deepEqual(held(1).slice(0, HOLD_TICKS + 1), [...Array(HOLD_TICKS).fill(FORWARD), 0], 'not predicting: 100 ms');
+});
+
+test("the core's own input with its sync check (10 bytes, an RNG value after the bits) is not a stamp", () => {
+  const { clock, sent, advance } = harness(2);
+  const b = new Uint8Array(10);
+  b[0] = 3;
+  new DataView(b.buffer).setUint32(2, FORWARD, true);
+  new DataView(b.buffer).setUint32(6, 57, true);
+  clock.input(0, b);
+  clock.input(1, inputMsg(0));
+  clock.poll();
+  assert.equal(bitsOf(sent[0], 0).bits, FORWARD);
 });

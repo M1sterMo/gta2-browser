@@ -68,6 +68,13 @@ model and replaces the transport.
   - **Only the clock drops a player:** when they leave the match, or after 20 s without an
     input. On a private server a dropped connection comes back by itself, and the game gets
     the bundles it missed (up to 30 s).
+  - **Prediction** (`web/rollback.js`). A game doesn't wait for the clock's bundle to show this
+    player's own inputs: it plays ahead (24 ticks at most), with this player's inputs at once,
+    stamped with their tick for the clock, and the other players' held controls as last
+    confirmed (key events are never guessed). As bundles come in it goes back to a snapshot of
+    the last confirmed tick (the WebAssembly memory without the stack, about 26 MB), plays the
+    confirmed ticks and predicts again up to the present. Only confirmed ticks make sound and go
+    into the sync check. `?predict=0` on the host's page turns it off.
   - The lobby compares every page's build; only players with the same one can start.
   - `?clock=0` on the host's page plays the original lockstep (every game waits for every
     player's inputs, with an input delay from the lobby's pings), for comparing.
@@ -119,6 +126,7 @@ checksums each, and the unimpaired player ran at 30 ticks a second without stand
 
 **Not tested yet:**
 - more than three players;
+- the host's page running the clock over real WebRTC (the end-to-end test uses the server's relay);
 - two computers far apart over the internet (the end-to-end test simulates it on one);
 - players behind strict NATs on the public site (there's no TURN relay, so WebRTC can fail
   there; the private server's relay doesn't have this problem);
@@ -130,6 +138,8 @@ checksums each, and the unimpaired player ran at 30 ticks a second without stand
 - A player whose connection drops comes back by itself on a private server within 30 s;
   after 20 s without input the clock drops them, and a dropped player can't rejoin the match.
 - Where the host's page runs the clock (the public site), the match ends when the host leaves.
+- With prediction, another player can snap when a guess was wrong (no smoothing yet), and your
+  own sound comes from confirmed ticks, so it lags by how far the game plays ahead.
 - Passengers can't shoot from the car (yet).
 - Finding peers through public trackers takes 10 to 60 seconds.
 

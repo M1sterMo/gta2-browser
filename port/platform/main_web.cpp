@@ -33,6 +33,9 @@ void Exit(int code)
     EM_ASM({ if (Module.onGameExit) Module.onGameExit($0); }, code);
 }
 
+// Co-op prediction (web/rollback.js, rollback_web.cpp): the page runs its ticks before the slice.
+EM_JS(void, gta2_js_before_slice, (), { Module.gta2Rollback && Module.gta2Rollback.frame(); });
+
 void Frame()
 {
     if (!gStarted || gPaused || gExited)
@@ -40,6 +43,7 @@ void Frame()
         return; // the shell's map screen is open (the game does not advance), or the game has ended
     }
     const double t0 = emscripten_get_now();
+    gta2_js_before_slice();
     const int r = Gta2Port_RunLoopSlice();
     Gta2Port_TrackJobBriefs(); // the current job's instructions, for the map screen
     gFrameMs += emscripten_get_now() - t0;

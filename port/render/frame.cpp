@@ -59,6 +59,15 @@ void gta2_frame_present()
     ++gPresents;
 }
 
+// A draw nobody sees (co-op prediction, winmain.cpp): its commands are dropped, not presented.
+void gta2_frame_discard()
+{
+    gCmds.clear();
+    gVerts.clear();
+    gFrameWidth = 640;
+    gHudOffsetX = 0.0f;
+}
+
 // Read by the game's HUD (Hud.cpp, port patch): anchor HUD parts to the screen edges in widescreen.
 int32_t gGta2PortHudEdges = 1;
 

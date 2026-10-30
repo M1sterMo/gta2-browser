@@ -30,6 +30,7 @@ extern "C" {
 void gta2_frame_push_vertex(uint32_t texture, uint32_t blend, const FrameVertex& v);
 void gta2_frame_clear(uint8_t r, uint8_t g, uint8_t b, int32_t left, int32_t top, int32_t right, int32_t bottom);
 void gta2_frame_present();
+void gta2_frame_discard(); // the commands so far are dropped (a draw nobody sees)
 // Called by the game (port patch in Game_0x40::Draw); reset after each present.
 void Gta2Port_SetFrameLayout(int32_t width, int32_t hudOffsetX);
 // Keep the HUD's commands of a full draw / replay them in an interpolated draw (D04).

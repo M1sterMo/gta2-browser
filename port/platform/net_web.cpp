@@ -81,6 +81,10 @@ s32 gWaits = 0; // ticks that waited for the clock, for the shell
 
 extern "C" s32 gGta2PortNetInputDelay = 0; // ticks; read by winmain.cpp
 extern "C" s32 gGta2PortNetClock = 0;      // 1: inputs come from the match clock; read by winmain.cpp
+// 1: prediction (web/rollback.js runs the ticks and sends this player's inputs, stamped with their
+// tick; winmain.cpp). The game's own sends then go nowhere: it plays ticks again after a
+// correction, and a played-again tick must not reach anyone.
+extern "C" s32 gGta2PortRollback = 0;
 
 EM_JS(void, gta2_js_net_send, (int to, const void* data, int len), {
     Module.gta2Net && Module.gta2Net.send(to, HEAPU8.slice(data, data + len));
@@ -89,7 +93,7 @@ EM_JS(void, gta2_js_net_send, (int to, const void* data, int len), {
 static void Send(s32 to, u8 subtype, u8 seq, const void* payload, s32 len)
 {
     u8 buf[2 + 256];
-    if (len < 0 || len > 256)
+    if (len < 0 || len > 256 || gGta2PortRollback)
     {
         return;
     }
@@ -126,6 +130,7 @@ EMSCRIPTEN_KEEPALIVE void gta2_port_net_configure(int count, int me, int delay, 
     gBufferTarget = 1;
     gLastChange = gLastRaise = gta2_port_now_ms();
     gGta2PortNetClock = gSession && clock ? 1 : 0;
+    gGta2PortRollback = 0;
     if (gGta2PortNetClock)
     {
         delay = 0;
@@ -144,6 +149,12 @@ EMSCRIPTEN_KEEPALIVE void gta2_port_net_configure(int count, int me, int delay, 
             gInbox.push_back({i, kInputs, static_cast<u8>(t), std::vector<u8>(4, 0)});
         }
     }
+}
+
+// Prediction (web/rollback.js) on or off, after gta2_port_net_configure; only with the match clock.
+EMSCRIPTEN_KEEPALIVE void gta2_port_net_rollback(int on)
+{
+    gGta2PortRollback = on && gGta2PortNetClock ? 1 : 0;
 }
 
 extern s32 gRuleType, gRuleLimit, gRuleMinutes;

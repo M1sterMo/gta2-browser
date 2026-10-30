@@ -1,0 +1,237 @@
+From 344367a607b4e49737641ac45a6076dd917890b2 Mon Sep 17 00:00:00 2001
+From: GTA2 port <port@localhost>
+Date: Thu, 29 Oct 2026 22:00:13 +0100
+Subject: [PATCH] port: co-op prediction: the page runs the match's ticks
+ (Gta2Port_RbTick), plays this player's inputs at once and goes back to the
+ last confirmed tick when the clock's bundles differ; a tick nobody sees skips
+ the world draw but keeps the HUD's per-tick servicing; predicted ticks are
+ silent
+
+---
+ Source/Game_0x40.cpp |  13 ++++-
+ Source/winmain.cpp   | 135 ++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 146 insertions(+), 2 deletions(-)
+
+diff --git a/Source/Game_0x40.cpp b/Source/Game_0x40.cpp
+index 92377fad..dd08f169 100644
+--- a/Source/Game_0x40.cpp
++++ b/Source/Game_0x40.cpp
+@@ -72,6 +72,8 @@ extern "C" void Gta2Port_SetFrameLayout(s32 width, s32 hudOffsetX);
+ extern "C" void Gta2Port_HudBegin();
+ extern "C" void Gta2Port_HudEnd();
+ extern "C" void Gta2Port_HudReplay();
++// winmain.cpp (co-op prediction): 1 while a tick nobody sees draws.
++extern "C" s32 gGta2PortSkipWorldDraw;
+ #endif
+ 
+ DEFINE_GLOBAL_INIT(Fix16, dword_67DECC, Fix16(5), 0x67DECC);
+@@ -404,9 +406,18 @@ void Game_0x40::Draw_4B92D0()
+     gSprite_8_703820->ResetDrawnSpriteCount_5A5860();
+     gSpriteRenderer_67B580->ResetAll_4954F0();
+ 
++#ifdef GTA2_PORT
++    // Co-op prediction (winmain.cpp, PortTickDraw): a tick nobody sees skips the world, which only
++    // the screen depends on, and keeps the rest (the HUD services its timers while drawing).
++    if (!gGta2PortSkipWorldDraw)
++    {
++#endif
+     gSpriteGrid_3_679210->DrawSpritesClipped_477A40();
+     gSpriteGrid_2_67920C->DrawSpritesClipped_477A40();
+     gSpriteGrid_1_679208->DrawSpritesClipped_477A40();
++#ifdef GTA2_PORT
++    }
++#endif
+ 
+     MakeScreenTableAndSetWindow_5D7D30();
+ 
+@@ -414,8 +425,8 @@ void Game_0x40::Draw_4B92D0()
+ 
+ #ifdef GTA2_PORT
+     Gta2Port_SetFrameLayout(gViewCamera_676978->field_68_screen_px_width, 0);
++    if (!gGta2PortSkipWorldDraw)
+ #endif
+-
+     gpMapRenderer_6F66E4->Draw_4F6A20(); // Note: Also seems to draw sprites
+ 
+     if (!bExplodingScoresOff_67D4FB)
+diff --git a/Source/winmain.cpp b/Source/winmain.cpp
+index d50d2aff..2a88aa10 100644
+--- a/Source/winmain.cpp
++++ b/Source/winmain.cpp
+@@ -1496,6 +1496,18 @@ extern "C" void Gta2Port_NetRoundBegin();
+ extern "C" s32 Gta2Port_NetBuffered();
+ extern "C" s32 Gta2Port_NetBufferTarget();
+ extern "C" void Gta2Port_NetWaited();
++// Co-op prediction (port/platform/rollback_web.cpp, web/rollback.js): the page runs the ticks. It
++// keeps a snapshot of the game at the last tick the clock confirmed, plays this player's inputs at
++// once and the others' as last seen, and when the clock's bundles differ it goes back to the
++// snapshot and plays the ticks again. The loop here then only draws between the page's ticks.
++extern "C" s32 gGta2PortRollback;          // port/platform/net_web.cpp
++extern "C" s32 gGta2PortSkipWorldDraw = 0; // Game_0x40.cpp: a tick nobody sees skips the world
++extern "C" void gta2_frame_discard();      // port/render/frame.cpp
++extern "C" void Gta2Port_AudioMute(s32 on); // port/audio/miles_web.cpp
++static bool sPortRbStarted;  // the match reached its first wait for the clock with prediction on
++static bool sPortRbHandOver; // a confirmed tick began the match's end: this loop runs the rest
++static bool sPortRbQuit;     // a confirmed tick ended the match
++static bool sPortRbShow;     // the tick is the last of the page's step: drawn and shown
+ static u32 sPortInputDelay[16];         // this player's inputs waiting for their tick (input delay)
+ static u32 sPortInputDelaySlot;
+ static u32 sPortNetWaiting;
+@@ -1652,6 +1664,25 @@ extern "C" const s32* gta2_port_net_debug()
+     return v;
+ }
+ 
++// A tick's own draw with prediction. Only the last tick of the page's step is shown; the others
++// (ticks played again after a correction, or several in one step) skip the world, which only the
++// screen depends on, and show nothing, but keep what a draw does to the game: the HUD services its
++// timers while drawing, once per tick, in every game alike.
++static void PortTickDraw()
++{
++    if (sPortRbShow || !sPortRbStarted)
++    {
++        Draw_4DA7B0();
++        return;
++    }
++    gGta2PortSkipWorldDraw = 1;
++    Gta2Port_InterpBegin(PortInterpFraction(), false);
++    gGame_0x40_67E008->Draw_4B92D0();
++    Gta2Port_InterpEnd();
++    gGta2PortSkipWorldDraw = 0;
++    gta2_frame_discard();
++}
++
+ // do_network_and_local_inputs_4DAF30 up to its input wait. Returns true when the wait is needed.
+ static bool PortNetworkInputsBegin()
+ {
+@@ -1691,6 +1722,20 @@ static bool PortNetworkInputsBegin()
+     // Input delay (D20, port/platform/net_web.cpp): today's inputs go out for tick + delay, and this
+     // player plays the ones sent delay ticks ago, as everyone else does.
+     // With the match clock they go to the clock only and come back in its bundle.
++    // With prediction the page takes this player's inputs (gta2_port_rb_sample) and sends them
++    // itself, stamped with their tick; the send here still runs for what it does to the game (with
++    // the sync check on it draws a random number) but goes nowhere (net_web.cpp).
++    if (gGta2PortRollback && !sPortRbHandOver)
++    {
++        Net_Send_Our_Inputs_4DACB0();
++        PortTickDraw();
++        PortNetReceiveBegin();
++        if (!sPortRbStarted)
++        {
++            sPortRbStarted = true;
++        }
++        return true;
++    }
+     const u32 fresh = gInputRecorder_67F8B0.get_input_bits_4CEAC0();
+     gCurrentNetInputs_6F57D8.field_0_inputs[gNetworkPlayerIdx_6F56C8].field_0_Inputs = fresh;
+     Net_Send_Our_Inputs_4DACB0();
+@@ -1727,6 +1772,82 @@ static void PortNetworkInputsFinish(bool exchanged)
+     }
+     ++gNetworkFrameCounter_6F5868;
+ }
++
++// Prediction (port/platform/rollback_web.cpp): one tick of the page's, from one input wait to the
++// next, with the tick's bundle in the inbox (gta2_port_net_bundle). The same steps as the loop's
++// tick below, in the same order. confirmed: the clock's bundle (sound plays, the sync checksum is
++// recorded); otherwise a prediction (silent: the next correction plays it again, and the confirmed
++// tick plays its sound). show: the last tick of the step, drawn and shown. Returns 0, 1 when the
++// tick ends the match, or -1 when the game is not waiting for a bundle (or the bundle was short).
++extern "C" s32 Gta2Port_RbTick(s32 confirmed, s32 show)
++{
++    if (!sPortRbStarted || sPortRbHandOver || !sPortNetPending || !gGame_0x40_67E008)
++    {
++        return -1;
++    }
++    if (!PortNetReceivePoll())
++    {
++        return -1;
++    }
++    PortNetworkInputsFinish(true);
++    sPortNetPending = false;
++    const u8 skip_audio = bSkip_audio_67D6BE;
++    if (!confirmed)
++    {
++        bSkip_audio_67D6BE = 1;
++        Gta2Port_AudioMute(1);
++    }
++    sPortRbShow = show != 0;
++    const bool end = ExecuteGame_4DA780() != 0;
++    Gta2Port_CoopTick();
++    Gta2Port_CoopSnapshot();
++    Gta2Port_InterpTick();
++    if (confirmed)
++    {
++        Gta2Port_SyncRecord();
++    }
++    sPortNetPending = PortNetworkInputsBegin();
++    if (!sPortNetPending)
++    {
++        PortNetworkInputsFinish(false);
++    }
++    sPortRbShow = false;
++    bSkip_audio_67D6BE = skip_audio;
++    Gta2Port_AudioMute(0);
++    if (confirmed && (end || !sPortNetPending))
++    {
++        // the match ends (or its exit timer runs): the loop plays the rest from here, as without
++        // prediction, and the page stops
++        sPortRbHandOver = true;
++        sPortRbQuit = end;
++        gMatchStartTime_6F5A28 = timeGetTime() + gGame_0x40_67E008->GetFrameDurationMs_4B8BB0();
++    }
++    return end ? 1 : 0;
++}
++
++// Prediction: [0] 1 once the page runs the ticks, [1] 1 once the loop has taken over again (the
++// match ends), [2] 1 while the game waits for a bundle.
++extern "C" const s32* Gta2Port_RbState()
++{
++    static s32 v[3];
++    v[0] = sPortRbStarted && !sPortRbHandOver;
++    v[1] = sPortRbHandOver;
++    v[2] = sPortNetPending;
++    return v;
++}
++
++// Prediction: this player's inputs for a new tick (the page sends them to the clock, stamped).
++extern "C" u32 Gta2Port_RbSample()
++{
++    return gInputRecorder_67F8B0.get_input_bits_4CEAC0();
++}
++
++// Prediction: when the page's next tick is due, in milliseconds from now (the draws in between
++// are interpolated towards it).
++extern "C" void Gta2Port_RbDue(double ms_from_now)
++{
++    gMatchStartTime_6F5A28 = static_cast<DWORD>(gta2_port_now_ms() + ms_from_now);
++}
+ #endif
+ 
+ 
+@@ -1742,11 +1863,23 @@ EXPORT u8 RunGameFrame_4DA850()
+     if (bStartNetworkGame_7081F0)
+     {
+ #ifdef GTA2_PORT
++        if (sPortRbQuit)
++        {
++            sPortRbQuit = false;
++            return 1; // a confirmed tick ended the match
++        }
++        // With prediction the page runs the ticks (Gta2Port_RbTick); this loop only draws between
++        // them, until the match's end hands it back.
++        const bool page_ticks = gGta2PortRollback && sPortRbStarted && !sPortRbHandOver;
+         bool ticked = false;
+         // The match clock's jitter buffer: with more bundles in hand than the target (and one for
+         // this tick), the game is behind the clock and runs the next tick at once.
+         const bool catch_up = gGta2PortNetClock && Gta2Port_NetBuffered() > Gta2Port_NetBufferTarget() + 1;
+-        if (sPortNetPending)
++        if (page_ticks)
++        {
++            ticked = false;
++        }
++        else if (sPortNetPending)
+         {
+             if (PortNetReceivePoll())
+             {
+-- 
+2.54.0 (Apple Git-157)
+

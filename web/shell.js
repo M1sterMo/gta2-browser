@@ -3,6 +3,7 @@
 // No game file leaves the device (R01); nothing is fetched from the network
 // except the port itself, or local files in ?devdata=1 developer mode.
 import createGta2 from './gta2.js';
+import { installJournal, Rollback } from './rollback.js';
 import { SAVE_KEY, SaveStates, exportSaves, importSaves, listSaves, toast } from './savestate.js';
 import { SavesScreen } from './saves.js';
 import { ControlsScreen } from './controls.js';
@@ -968,9 +969,16 @@ async function cachePickedFiles(files) {
  * map for the district, and connects the core to the lobby's transport.
  */
 function setupCoop(Module, coop) {
-  const { lobby, district, players, mySlot, delay, friendlyFire, mode = 'roam', crews = [], clock = false } = coop;
+  const { lobby, district, players, mySlot, delay, friendlyFire, mode = 'roam', crews = [], clock = false, predict = false } = coop;
   const d = DISTRICTS[district];
   Module.ccall('gta2_port_net_configure', null, ['number', 'number', 'number', 'number'], [players.length, mySlot, delay, clock ? 1 : 0]);
+  // Prediction (web/rollback.js): this player's inputs show at once; the page runs the ticks.
+  const rollback = clock && predict
+    ? new Rollback(Module, Module.gta2Journal, { players: players.length, mySlot, send: (bytes) => lobby.sendGame(-1, bytes) })
+    : null;
+  Module.ccall('gta2_port_net_rollback', null, ['number'], [rollback ? 1 : 0]);
+  Module.gta2Rollback = rollback;
+  coop.rollback = rollback;
   // the mode's rules: free-for-all is the original frag game; Gang Wars and free roam a points game
   // (Gang Wars scored per crew by the shell); friendly fire everywhere in free-for-all, by crew in Gang Wars
   Module.ccall('gta2_port_set_friendly_fire', null, ['number'], [mode === 'ffa' || (mode === 'roam' && friendlyFire) ? 1 : 0]);
@@ -998,7 +1006,7 @@ function setupCoop(Module, coop) {
   // With the match clock (web/clock.js) every tick's inputs come in its bundles, and only the
   // clock drops a player; without it each game gives up on a player whose connection closed.
   const bundle = Module.cwrap('gta2_port_net_bundle', null, ['number', 'number']);
-  lobby.onBundle = (bytes) => {
+  lobby.onBundle = rollback ? (bytes) => rollback.receive(bytes) : (bytes) => {
     const ptr = Module._malloc(bytes.length);
     Module.HEAPU8.set(bytes, ptr);
     bundle(ptr, bytes.length);
@@ -1120,10 +1128,15 @@ const PLAYER_COLOURS = ['#4fc3ff', '#ff6b6b', '#7ee081', '#c792ff', '#ffa94d', '
  * everyone's position and stats (from the local game, which simulates them
  * all) and their shared waypoints (lobby messages, outside the game).
  */
-function coopView(Module, { lobby, players, mySlot, mode = 'roam', crews = [] }) {
+function coopView(Module, { lobby, players, mySlot, mode = 'roam', crews = [], rollback = null }) {
   const waypoints = new Map(); // slot -> {x, y}
   lobby.onWaypoint = (slot, wp) => { if (wp) waypoints.set(slot, wp); else waypoints.delete(slot); };
   const read = Module.cwrap('gta2_port_coop_players', 'number', []);
+  // With prediction (web/rollback.js) the game's memory holds guessed ticks between the page's
+  // steps: the map and radar show those (this player's moves at once), the standings (the Gang Wars
+  // win, the results the server keeps) the last confirmed tick, which every game agrees on.
+  let confirmed = null;
+  if (rollback) rollback.onConfirmed = () => { const p = read(); confirmed = Module.HEAP32.slice(p >> 2, (p >> 2) + 72); };
   const crewOf = (slot) => (mode === 'wars' ? crews.findIndex((c) => c.members.includes(players[slot].id)) : -1);
   const colour = (slot) => {
     const c = crewOf(slot);
@@ -1136,10 +1149,13 @@ function coopView(Module, { lobby, players, mySlot, mode = 'roam', crews = [] })
     waypoints,
     colour,
     name: (slot) => (players[slot] ? players[slot].name : t('shell.playerN', { n: slot + 1 })),
-    /** Every player in the match: position (blocks), heading, health, stats, crew. */
-    players() {
-      const p = read();
-      const v = Module.HEAP32.subarray(p >> 2, (p >> 2) + 72);
+    /** Every player in the match: position (blocks), heading, health, stats, crew (fromConfirmed: see above). */
+    players(fromConfirmed = false) {
+      let v = fromConfirmed && confirmed;
+      if (!v) {
+        const p = read();
+        v = Module.HEAP32.subarray(p >> 2, (p >> 2) + 72);
+      }
       return players.map((pl, slot) => {
         const o = slot * 12;
         const crew = crewOf(slot);
@@ -1155,7 +1171,7 @@ function coopView(Module, { lobby, players, mySlot, mode = 'roam', crews = [] })
     },
     /** The scoreboard and the end-of-match results: {title, endTitle, columns, rows: [{cells, colour, strong}]}. */
     standings() {
-      const ps = view.players().filter((p) => p.inGame);
+      const ps = view.players(true).filter((p) => p.inGame);
       const row = (p) => ({ cells: [p.me ? t('shell.you', { name: p.name }) : p.name, p.kills, p.deaths, money(p.points)], colour: p.colour, strong: p.me });
       if (mode === 'wars') {
         const totals = crews.map((c, i) => {
@@ -1188,7 +1204,7 @@ function coopView(Module, { lobby, players, mySlot, mode = 'roam', crews = [] })
     },
     /** Gang Wars result for the server (saved crews): every crew, its members' stats, who won. */
     report() {
-      const ps = view.players().filter((p) => p.inGame);
+      const ps = view.players(true).filter((p) => p.inGame);
       const sums = crews.map((c, i) => ({ c, members: ps.filter((p) => p.crew === i) }))
         .map((t) => ({ ...t, points: t.members.reduce((n, p) => n + p.points, 0) }));
       const best = Math.max(0, ...sums.map((t) => t.points));
@@ -1242,6 +1258,9 @@ async function start(getFiles, { cacheAfterStart = false, coop = null, loadSlot 
         setStatus(t('shell.gameExited', { code }));
       },
     });
+    // co-op prediction (web/rollback.js): what the page changes in the game's memory between its
+    // ticks is recorded, before anything holds the exports that do it
+    Module.gta2Journal = installJournal(Module);
     renderer.module = Module;
     storage.module = Module;
     audio.module = Module;
