@@ -70,6 +70,9 @@ registerDict({
     'shell.desync': 'The games have drifted apart (tick {tick}, with {player}): what you see may no longer match. ' +
       'Start a new match to fix it.',
     'shell.waitingFor': 'Waiting for {players}…',
+    'shell.waitingClock': 'Waiting for the connection to the game…',
+    'shell.lagging': 'Connection lagging: {players}',
+    'shell.clockLost': 'The connection to the match is gone (the host left, or this computer was offline too long). The match is over.',
     'shell.you': '{name} (you)',
     'shell.warsTied': 'Gang Wars: level',
     'shell.warsLead': 'Gang Wars: {crew} leads with {points}',
@@ -186,6 +189,9 @@ registerDict({
     'shell.desync': 'Las partidas se han desincronizado (tic {tick}, con {player}): lo que ves puede no coincidir. ' +
       'Empieza otra partida para solucionarlo.',
     'shell.waitingFor': 'Esperando a {players}…',
+    'shell.waitingClock': 'Esperando la conexión con la partida…',
+    'shell.lagging': 'Conexión con retraso: {players}',
+    'shell.clockLost': 'Se perdió la conexión con la partida (el anfitrión se fue, o este equipo estuvo sin conexión demasiado tiempo). La partida ha terminado.',
     'shell.you': '{name} (tú)',
     'shell.warsTied': 'Guerra de bandas: empate',
     'shell.warsLead': 'Guerra de bandas: {crew} lidera con {points}',
@@ -303,6 +309,9 @@ registerDict({
     'shell.desync': 'Les parties se sont désynchronisées (tic {tick}, avec {player}) : ce que vous voyez peut ne plus ' +
       'correspondre. Lancez une nouvelle partie pour corriger ça.',
     'shell.waitingFor': 'En attente de {players}…',
+    'shell.waitingClock': 'En attente de la connexion à la partie…',
+    'shell.lagging': 'Connexion qui rame : {players}',
+    'shell.clockLost': 'La connexion à la partie est perdue (l’hôte est parti, ou cet ordinateur est resté hors ligne trop longtemps). La partie est terminée.',
     'shell.you': '{name} (vous)',
     'shell.warsTied': 'Guerre de gangs : égalité',
     'shell.warsLead': 'Guerre de gangs : {crew} mène avec {points}',
@@ -956,9 +965,9 @@ async function cachePickedFiles(files) {
  * map for the district, and connects the core to the lobby's transport.
  */
 function setupCoop(Module, coop) {
-  const { lobby, district, players, mySlot, delay, friendlyFire, mode = 'roam', crews = [] } = coop;
+  const { lobby, district, players, mySlot, delay, friendlyFire, mode = 'roam', crews = [], clock = false } = coop;
   const d = DISTRICTS[district];
-  Module.ccall('gta2_port_net_configure', null, ['number', 'number', 'number'], [players.length, mySlot, delay]);
+  Module.ccall('gta2_port_net_configure', null, ['number', 'number', 'number', 'number'], [players.length, mySlot, delay, clock ? 1 : 0]);
   // the mode's rules: free-for-all is the original frag game; Gang Wars and free roam a points game
   // (Gang Wars scored per crew by the shell); friendly fire everywhere in free-for-all, by crew in Gang Wars
   Module.ccall('gta2_port_set_friendly_fire', null, ['number'], [mode === 'ffa' || (mode === 'roam' && friendlyFire) ? 1 : 0]);
@@ -983,7 +992,20 @@ function setupCoop(Module, coop) {
     receive(slot, ptr, bytes.length);
     Module._free(ptr);
   };
-  lobby.onPlayerLeft = (slot) => Module.ccall('gta2_port_net_peer_left', null, ['number'], [slot]);
+  // With the match clock (web/clock.js) every tick's inputs come in its bundles, and only the
+  // clock drops a player; without it each game gives up on a player whose connection closed.
+  const bundle = Module.cwrap('gta2_port_net_bundle', null, ['number', 'number']);
+  lobby.onBundle = (bytes) => {
+    const ptr = Module._malloc(bytes.length);
+    Module.HEAPU8.set(bytes, ptr);
+    bundle(ptr, bytes.length);
+    Module._free(ptr);
+  };
+  lobby.onPlayerLeft = (slot) => { if (!clock) Module.ccall('gta2_port_net_peer_left', null, ['number'], [slot]); };
+  lobby.onClockLost = () => {
+    setStatus(t('shell.clockLost'), true);
+    setTimeout(() => Module.onGameExit && Module.onGameExit(0), 5000);
+  };
   lobby.gameReady();
   watchCoop(Module, coop);
   // Developer option (?syncdump=N): capture every sprite at game tick N, for desync hunting.
@@ -1028,7 +1050,7 @@ function watchCoop(Module, coop) {
     for (let i = 0; i < 1024; i++) {
       const tick = v[i * 9];
       if (tick > 0 && tick % EVERY === 0 && !mine.has(tick)) {
-        mine.set(tick, [1, 3, 4, 5, 6].map((k) => v[i * 9 + k]).join(':'));
+        mine.set(tick, [1, 3, 4, 5, 6, 7, 8].map((k) => v[i * 9 + k]).join(':')); // RNG, peds, cars, objects, players
       }
     }
   };
@@ -1047,6 +1069,8 @@ function watchCoop(Module, coop) {
     compare(tick);
   };
   let held = { frame: -1, since: 0 };
+  const lag = { late: [], at: -Infinity };
+  lobby.onLag = (late) => { lag.late = late; lag.at = performance.now(); };
   setInterval(() => {
     checksumRows();
     for (const tick of [...mine.keys()].filter((t) => t > lastSent).sort((a, b) => a - b)) {
@@ -1060,8 +1084,10 @@ function watchCoop(Module, coop) {
     const v = Module.HEAP32.subarray(p >> 2, (p >> 2) + 10);
     const now = performance.now();
     if (v[4] !== held.frame) held = { frame: v[4], since: now };
-    const waiting = v[3] && now - held.since > 500
-      ? players.map((_, slot) => slot).filter((slot) => slot !== mySlot && (v[6] & (1 << slot))) : [];
+    const stalled = v[3] && now - held.since > 500;
+    const waiting = stalled && !coop.clock ? players.map((_, slot) => slot).filter((slot) => slot !== mySlot && (v[6] & (1 << slot))) : [];
+    // the clock's word on who it had to make up inputs for (a fifth or more of the last 2 s)
+    const lagging = now - lag.at < 3000 ? lag.late.map((n, slot) => (n >= 12 ? slot : -1)).filter((slot) => slot >= 0) : [];
     if (coop.results) coop.results(); // keeps the latest standings for the end-of-match results
     // Gang Wars: a crew reaching the points target wins (time limits and free-for-all end in the game)
     if (!won && coop.mode === 'wars' && coop.pointsTarget > 0 && coop.results) {
@@ -1075,6 +1101,8 @@ function watchCoop(Module, coop) {
     if (won) text = t('shell.gangWarWon', { crew: won });
     else if (desync) text = t('shell.desync', { tick: desync.tick, player: name(desync.slot) });
     else if (waiting.length) text = t('shell.waitingFor', { players: waiting.map(name).join(', ') });
+    else if (stalled && coop.clock) text = t('shell.waitingClock');
+    else if (lagging.length) text = t('shell.lagging', { players: lagging.map(name).join(', ') });
     banner.textContent = text;
     banner.hidden = !text;
     banner.classList.toggle('error', !!desync);
@@ -1193,6 +1221,7 @@ async function start(getFiles, { cacheAfterStart = false, coop = null, loadSlot 
       onAbort: (what) => recordError(what),
       onGameExit: (code) => {
         if (coop) {
+          coop.lobby.leaveMatch();
           // back to the same room, as host again or rejoining (wireCoopLobby picks this up)
           try {
             sessionStorage.setItem('gta2-coop-rematch', JSON.stringify({ code: coop.lobby.code, host: coop.lobby.host, settings: coop.lobby.settings }));
@@ -1753,7 +1782,7 @@ function wireCoopLobby() {
     $('coop-crews').replaceChildren(...cards);
     if (lobby && !crewSent && savedCrew && (lobby.host || lobby.hostId)) { crewSent = true; lobby.setCrew(savedCrew); }
     $('coop-start').hidden = !host;
-    const why = host ? lobby.startProblem() : '';
+    const why = host ? lobby.startProblem() : lobby ? lobby.versionProblem() : '';
     $('coop-start').disabled = !!why;
     $('coop-start-why').textContent = why;
     // on our server: one link that logs a friend in and opens this room

@@ -1,0 +1,124 @@
+From 9da3a980b45eb76ab552d64b816a01f3f3d41dd8 Mon Sep 17 00:00:00 2001
+From: GTA2 port <port@localhost>
+Date: Thu, 29 Oct 2026 20:36:08 +0100
+Subject: [PATCH] port: co-op match clock: with the clock, this player's own
+ inputs come back in its bundles like everyone else's and only the clock drops
+ a player; ticks catch up while more bundles than the jitter buffer's target
+ are in hand and run an eighth slower while fewer are; a tick's round takes at
+ most one input message per player
+
+---
+ Source/winmain.cpp | 38 ++++++++++++++++++++++++++++++++++----
+ 1 file changed, 34 insertions(+), 4 deletions(-)
+
+diff --git a/Source/winmain.cpp b/Source/winmain.cpp
+index e1e82223..d50d2aff 100644
+--- a/Source/winmain.cpp
++++ b/Source/winmain.cpp
+@@ -1486,13 +1486,23 @@ EXPORT void __stdcall do_network_and_local_inputs_4DAF30()
+ // frame. The logic is the original's, moved; the received message goes through a local Network_8
+ // instead of the original's cast over the adjacent gpInputBuffer / gCurrentInputsBufferSize globals,
+ // which are not adjacent in this build.
++//
++// With the match clock (web/clock.js, port/platform/net_web.cpp) this player's own inputs come
++// back in the clock's bundles like everyone else's, and only the clock drops a player: no game
++// gives up on anyone by itself, since each would do it at a different tick.
+ extern "C" s32 gGta2PortNetInputDelay; // port/platform/net_web.cpp
++extern "C" s32 gGta2PortNetClock;
++extern "C" void Gta2Port_NetRoundBegin();
++extern "C" s32 Gta2Port_NetBuffered();
++extern "C" s32 Gta2Port_NetBufferTarget();
++extern "C" void Gta2Port_NetWaited();
+ static u32 sPortInputDelay[16];         // this player's inputs waiting for their tick (input delay)
+ static u32 sPortInputDelaySlot;
+ static u32 sPortNetWaiting;
+ static DWORD sPortNetStart;
+ static s32 sPortNetRetries;
+ static bool sPortNetPending;
++static bool sPortNetWaited; // this tick has waited for the clock
+ 
+ static void PortNetReceiveBegin()
+ {
+@@ -1501,14 +1511,16 @@ static void PortNetReceiveBegin()
+     sPortNetWaiting = 0;
+     for (u32 i = 0; i < GTA2_COUNTOF(gNetPlay_7071E8.field_758_n2.field_10_players); i++)
+     {
+-        if (gNetPlay_7071E8.field_758_n2.field_10_players[i].field_0_in_use && i != gNetworkPlayerIdx_6F56C8)
++        if (gNetPlay_7071E8.field_758_n2.field_10_players[i].field_0_in_use && (i != gNetworkPlayerIdx_6F56C8 || gGta2PortNetClock))
+         {
+             sPortNetWaiting |= 1 << i;
+         }
+     }
+     sPortNetStart = timeGetTime();
+     sPortNetRetries = 0;
++    sPortNetWaited = false;
+     gTotalNetworkTime_6F5980 = 0;
++    Gta2Port_NetRoundBegin();
+ }
+ 
+ // Returns true when every player's inputs for this tick are in (or the game is ending).
+@@ -1579,6 +1591,15 @@ static bool PortNetReceivePoll()
+     {
+         return true;
+     }
++    if (gGta2PortNetClock)
++    {
++        if (!sPortNetWaited)
++        {
++            sPortNetWaited = true;
++            Gta2Port_NetWaited();
++        }
++        return false; // only the clock drops a player (a 'left' in its bundle)
++    }
+     if (timeGetTime() - sPortNetStart > 1000 && sPortNetRetries >= max_retries)
+     {
+         // Give up on the players that didn't answer, as the original does
+@@ -1669,10 +1690,11 @@ static bool PortNetworkInputsBegin()
+     }
+     // Input delay (D20, port/platform/net_web.cpp): today's inputs go out for tick + delay, and this
+     // player plays the ones sent delay ticks ago, as everyone else does.
++    // With the match clock they go to the clock only and come back in its bundle.
+     const u32 fresh = gInputRecorder_67F8B0.get_input_bits_4CEAC0();
+     gCurrentNetInputs_6F57D8.field_0_inputs[gNetworkPlayerIdx_6F56C8].field_0_Inputs = fresh;
+     Net_Send_Our_Inputs_4DACB0();
+-    if (gGta2PortNetInputDelay > 0)
++    if (gGta2PortNetInputDelay > 0 && !gGta2PortNetClock)
+     {
+         const u32 slot = sPortInputDelaySlot++ % gGta2PortNetInputDelay;
+         gCurrentNetInputs_6F57D8.field_0_inputs[gNetworkPlayerIdx_6F56C8].field_0_Inputs = sPortInputDelay[slot];
+@@ -1721,6 +1743,9 @@ EXPORT u8 RunGameFrame_4DA850()
+     {
+ #ifdef GTA2_PORT
+         bool ticked = false;
++        // The match clock's jitter buffer: with more bundles in hand than the target (and one for
++        // this tick), the game is behind the clock and runs the next tick at once.
++        const bool catch_up = gGta2PortNetClock && Gta2Port_NetBuffered() > Gta2Port_NetBufferTarget() + 1;
+         if (sPortNetPending)
+         {
+             if (PortNetReceivePoll())
+@@ -1729,7 +1754,7 @@ EXPORT u8 RunGameFrame_4DA850()
+                 sPortNetPending = false;
+             }
+         }
+-        else if (Time >= gMatchStartTime_6F5A28)
++        else if (Time >= gMatchStartTime_6F5A28 || catch_up)
+         {
+             ticked = true;
+             bContinue = ExecuteGame_4DA780();
+@@ -1740,7 +1765,12 @@ EXPORT u8 RunGameFrame_4DA850()
+             // The next tick is due one frame after this one was due, not after it ran: a browser only
+             // checks once per display frame, and "now + frame" lost up to a display frame every tick.
+             // After a long wait (the network, a hidden tab) the schedule restarts from now.
+-            const s32 frame_ms = gGame_0x40_67E008->GetFrameDurationMs_4B8BB0();
++            // With the match clock, an eighth slower while fewer bundles than the target are in hand.
++            s32 frame_ms = gGame_0x40_67E008->GetFrameDurationMs_4B8BB0();
++            if (gGta2PortNetClock && Gta2Port_NetBuffered() <= Gta2Port_NetBufferTarget())
++            {
++                frame_ms += frame_ms / 8;
++            }
+             gMatchStartTime_6F5A28 = Time - gMatchStartTime_6F5A28 > static_cast<DWORD>(frame_ms * 4)
+                 ? Time + frame_ms
+                 : gMatchStartTime_6F5A28 + frame_ms;
+-- 
+2.54.0 (Apple Git-157)
+

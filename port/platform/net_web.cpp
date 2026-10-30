@@ -15,6 +15,16 @@
 // for tick N + delay (winmain.cpp applies the local player's own inputs that
 // late as well), so a message has `delay` ticks to arrive before anyone waits
 // for it. The first `delay` ticks use empty inputs, queued here at the start.
+//
+// The match clock (co-op, web/clock.js) replaces that: a player's inputs go to the clock only,
+// and every tick's inputs, this player's too, come back from it in one bundle, the same for every
+// game. Nobody waits for another player, only for the clock. Bundles that arrive early are this
+// game's buffer against jitter: winmain.cpp plays a little slower while fewer than the target are
+// in hand and catches up while more are, and a tick that has to wait raises the target.
+//
+// Either way a tick takes at most one input message from each player (a round): with three or
+// more players, one player's next inputs could otherwise be taken (and lost) while another
+// player's were still on their way, and that game fell a tick behind for that player.
 #include <emscripten.h>
 #include <string.h>
 
@@ -23,6 +33,7 @@
 
 #include "NetPlay.hpp"
 #include "Network_20324.hpp"
+#include "platform/port_api.h"
 
 DEFINE_GLOBAL(NetPlay, gNetPlay_7071E8, 0x7071E8);
 EXTERN_GLOBAL(s32, gNetworkGameSpeed_7071A0); // Game_0x40.cpp; the DirectPlay lobby set these
@@ -45,15 +56,31 @@ struct Message
 
 std::deque<Message> gInbox;
 u8 gExpectedSeq[MAX_PLAYERS];
+u8 gClockSeq[MAX_PLAYERS]; // sequence numbers for the inputs taken out of bundles
 u8 gDelivered[256];
 wchar_t gNames[MAX_PLAYERS][32];
 bool gSession = false;
 constexpr s32 kMaxInputDelay = 15;
 // the match's map, style and script (data\ is added by the game)
 char gMap[3][64];
+
+u32 gRoundTaken = 0; // players whose inputs this tick's round has taken
+s32 gBundles = 0;    // bundles received
+s32 gRounds = 0;     // rounds begun (one per tick)
+// The jitter buffer: bundles to keep in hand. A tick that waits raises it (up to kMaxBuffer, at
+// most once a second, not in the match's first kSettleRounds while everyone is still entering);
+// kCalmMs without a wait lowers it again.
+constexpr s32 kMaxBuffer = 6;
+constexpr double kCalmMs = 5000;
+constexpr s32 kSettleRounds = 90;
+s32 gBufferTarget = 1;
+double gLastChange = 0;
+double gLastRaise = 0;
+s32 gWaits = 0; // ticks that waited for the clock, for the shell
 } // namespace
 
 extern "C" s32 gGta2PortNetInputDelay = 0; // ticks; read by winmain.cpp
+extern "C" s32 gGta2PortNetClock = 0;      // 1: inputs come from the match clock; read by winmain.cpp
 
 EM_JS(void, gta2_js_net_send, (int to, const void* data, int len), {
     Module.gta2Net && Module.gta2Net.send(to, HEAPU8.slice(data, data + len));
@@ -76,8 +103,9 @@ extern "C" {
 
 // The shell sets up a session before starting a network game: count players
 // (slots 0..count-1, 0 is the host), this player is slot me, inputs delayed by
-// delay ticks (the same for every player).
-EMSCRIPTEN_KEEPALIVE void gta2_port_net_configure(int count, int me, int delay)
+// delay ticks (the same for every player), or clock 1: every input comes from
+// the match clock (delay is then unused).
+EMSCRIPTEN_KEEPALIVE void gta2_port_net_configure(int count, int me, int delay, int clock)
 {
     NetPlay& n = gNetPlay_7071E8;
     gSession = count > 1;
@@ -90,8 +118,18 @@ EMSCRIPTEN_KEEPALIVE void gta2_port_net_configure(int count, int me, int delay)
         n.field_758_n2.field_10_players[i].field_10_player_id = i;
         n.field_758_n2.field_8_packet_game_tick[i] = 0;
         gExpectedSeq[i] = 0;
+        gClockSeq[i] = 0;
     }
     gInbox.clear();
+    gRoundTaken = 0;
+    gBundles = gRounds = gWaits = 0;
+    gBufferTarget = 1;
+    gLastChange = gLastRaise = gta2_port_now_ms();
+    gGta2PortNetClock = gSession && clock ? 1 : 0;
+    if (gGta2PortNetClock)
+    {
+        delay = 0;
+    }
     gGta2PortNetInputDelay = delay < 0 ? 0 : delay > kMaxInputDelay ? kMaxInputDelay : delay;
     // Free roam (D20): the fastest network speed, 33 ms per tick like single player (0 = 50 ms,
     // the original's slowest, was left by default), and the police on.
@@ -174,6 +212,85 @@ EMSCRIPTEN_KEEPALIVE void gta2_port_net_peer_left(int idx)
     gInbox.push_back({idx, kStandard, 0, std::vector<u8>(payload, payload + 5)});
 }
 
+// A tick's bundle from the match clock (web/clock.js), the shell passes them in order:
+// [0x42, tick u32, n, n x (slot, kind 0 input / 1 left, bits u32)]. Each entry becomes the
+// message that player's game would have sent: their inputs, or their give-up.
+EMSCRIPTEN_KEEPALIVE void gta2_port_net_bundle(const u8* data, int len)
+{
+    if (!gSession || !gGta2PortNetClock || len < 6 || data[0] != 0x42 || len < 6 + data[5] * 6)
+    {
+        return;
+    }
+    for (s32 i = 0; i < data[5]; ++i)
+    {
+        const u8* e = data + 6 + i * 6;
+        const s32 slot = e[0];
+        if (slot >= MAX_PLAYERS)
+        {
+            continue;
+        }
+        if (e[1] == 1)
+        {
+            u8 payload[5] = {kGiveUp, 0, 0, 0, 0};
+            memcpy(payload + 1, &slot, 4);
+            gInbox.push_back({slot, kStandard, 0, std::vector<u8>(payload, payload + 5)});
+        }
+        else
+        {
+            gInbox.push_back({slot, kInputs, gClockSeq[slot]++, std::vector<u8>(e + 2, e + 6)});
+        }
+    }
+    ++gBundles;
+}
+
+// Co-op diagnostics for the shell: [bundles in hand, buffer target, ticks that waited].
+EMSCRIPTEN_KEEPALIVE const s32* gta2_port_net_clock_state()
+{
+    static s32 v[3];
+    v[0] = gBundles - gRounds;
+    v[1] = gBufferTarget;
+    v[2] = gWaits;
+    return v;
+}
+
+// winmain.cpp: a tick's round of input messages begins.
+void Gta2Port_NetRoundBegin()
+{
+    gRoundTaken = 0;
+    ++gRounds;
+}
+
+// winmain.cpp: bundles in hand that no round has begun on yet.
+s32 Gta2Port_NetBuffered()
+{
+    return gBundles - gRounds;
+}
+
+// winmain.cpp: the jitter buffer's target, lowered after kCalmMs without a wait.
+s32 Gta2Port_NetBufferTarget()
+{
+    const double now = gta2_port_now_ms();
+    if (gBufferTarget > 1 && now - gLastChange > kCalmMs)
+    {
+        --gBufferTarget;
+        gLastChange = now;
+    }
+    return gBufferTarget;
+}
+
+// winmain.cpp: a tick had to wait for the clock's bundle (not the first ticks of the match).
+void Gta2Port_NetWaited()
+{
+    ++gWaits;
+    const double now = gta2_port_now_ms();
+    if (gRounds > kSettleRounds && gBufferTarget < kMaxBuffer && now - gLastRaise > 1000)
+    {
+        ++gBufferTarget;
+        gLastRaise = now;
+    }
+    gLastChange = now;
+}
+
 } // extern "C"
 
 NetPlay::NetPlay()
@@ -244,10 +361,15 @@ s32 NetPlay::SendToPlayer_521630(Network_8*, s32, char_type)
 
 char_type NetPlay::ReceiveGameMessage_521890(Network_8* pOut, s32* pPlayerIdx, u32* packet_subtype)
 {
-    while (gSession && !gInbox.empty())
+    for (size_t i = 0; gSession && i < gInbox.size();)
     {
-        Message m = std::move(gInbox.front());
-        gInbox.pop_front();
+        if (gInbox[i].subtype == kInputs && (gRoundTaken & (1u << gInbox[i].from)))
+        {
+            ++i; // that player's inputs for a later tick: they wait for their round
+            continue;
+        }
+        Message m = std::move(gInbox[i]);
+        gInbox.erase(gInbox.begin() + static_cast<std::ptrdiff_t>(i));
         if (m.subtype == kInputs)
         {
             if (m.seq != gExpectedSeq[m.from])
@@ -255,6 +377,7 @@ char_type NetPlay::ReceiveGameMessage_521890(Network_8* pOut, s32* pPlayerIdx, u
                 continue; // a resend of inputs already delivered
             }
             ++gExpectedSeq[m.from];
+            gRoundTaken |= 1u << m.from;
         }
         const size_t len = m.payload.size() < sizeof(gDelivered) ? m.payload.size() : sizeof(gDelivered);
         memcpy(gDelivered, m.payload.data(), len);

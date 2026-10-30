@@ -53,14 +53,32 @@ downloads them from the Internet Archive. On a private server, the server provid
 GTA2 had a LAN/internet multiplayer mode built on DirectPlay. The port keeps the game's own
 model and replaces the transport.
 
-- **Lockstep.** Every player runs the whole simulation. Only each player's key presses
-  travel, a few bytes per tick at 30 ticks a second.
-  - A tick runs once everyone's input for it has arrived, so all the games stay identical.
-  - The host measures pings in the lobby and picks an **input delay** (1 to 8 ticks), so the
-    game rarely waits on the network.
-- **Sync checks.** Every 90 ticks (3 seconds) each game hashes its peds and cars and shares the hash.
-  - If two games ever differ, the page logs the tick and player (`co-op: games drifted
-    apart…` in the console).
+- **Lockstep with a match clock.** Every player runs the whole simulation. Only each player's
+  key presses travel, a few bytes per tick at 30 ticks a second.
+  - The **match clock** (`web/clock.js`) takes every player's inputs and sends every game one
+    bundle per tick, with an input for each player. On a private server the server runs it;
+    elsewhere (the public site, tabs) the host's page does.
+  - **Nobody waits for another player.** A late input waits for the next tick. A player with
+    no input in time gets a made-up one: the controls they held, for at most 100 ms, then
+    nothing; never a one-off key (the HUD keys, the quit prompt), so it never starts anything.
+    Every game plays the same bundles in the same order, so they stay identical.
+  - **Jitter buffer.** Each game keeps a few bundles in hand (1 to 6: more after a tick had to
+    wait, fewer after 5 s without). It runs an eighth slower while it has fewer and catches up
+    at once while it has more.
+  - **Only the clock drops a player:** when they leave the match, or after 20 s without an
+    input. On a private server a dropped connection comes back by itself, and the game gets
+    the bundles it missed (up to 30 s).
+  - The lobby compares every page's build; only players with the same one can start.
+  - `?clock=0` on the host's page plays the original lockstep (every game waits for every
+    player's inputs, with an input delay from the lobby's pings), for comparing.
+  - Before the clock, with three or more players a game could take one player's next input
+    while another player's was still on its way, and fall a tick behind for that player: the
+    games drifted apart and stuttered. Each tick now takes at most one input per player.
+- **Sync checks.** Every 90 ticks (3 seconds) each game hashes its random number generator,
+  peds, cars, objects (bullets, rockets, pick-ups, debris) and players (cash, wanted level,
+  health, weapon, ammo) and shares the hash.
+  - If two games ever differ, the page shows it and logs the tick and player (`co-op: games
+    drifted apart…` in the console).
   - It doesn't repair the drift yet. See the ideas below.
 - **Transports** (`web/net.js`). Each one carries the same lobby and game messages:
 
@@ -91,9 +109,17 @@ model and replaces the transport.
 
 On the live server, two tabs ran at a 13 ms round trip with matching checksums.
 
+**End to end** (`node scripts/port/coop_test.mjs`, the match clock): a local game server and
+2 or 3 players in Chromium, each with its own browser profile, walking, turning and shooting
+at random. Players can get a bad connection (`--netsim`), a 30 fps screen (`--fps`), a frozen
+page (`--freeze`) or a dropped connection (`--drop`). Three players, one with 120 ms ± 80 ms and
+400 ms stalls who froze for 3 s, one at 30 fps whose connection dropped: no drift in 40
+checksums each, and the unimpaired player ran at 30 ticks a second without standing still.
+`node --test scripts/port/clock_test.mjs` tests the clock on its own.
+
 **Not tested yet:**
-- more than two players;
-- two computers far apart over the internet;
+- more than three players;
+- two computers far apart over the internet (the end-to-end test simulates it on one);
 - players behind strict NATs on the public site (there's no TURN relay, so WebRTC can fail
   there; the private server's relay doesn't have this problem);
 - long sessions with heavy combat and police, to look for drift;
@@ -101,8 +127,9 @@ On the live server, two tabs ran at a 13 ms round trip with matching checksums.
 
 **Known limits:**
 - 6 players (the original's limit).
-- A player who disconnects during a match is dropped after about 6 seconds and can't rejoin
-  (in the lobby, the private server's relay reconnects by itself).
+- A player whose connection drops comes back by itself on a private server within 30 s;
+  after 20 s without input the clock drops them, and a dropped player can't rejoin the match.
+- Where the host's page runs the clock (the public site), the match ends when the host leaves.
 - Passengers can't shoot from the car (yet).
 - Finding peers through public trackers takes 10 to 60 seconds.
 

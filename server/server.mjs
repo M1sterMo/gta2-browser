@@ -22,7 +22,7 @@ import { createReadStream } from 'node:fs';
 import { readdir, stat } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { extname, join, relative, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { CrewStore } from './crews.mjs';
 
@@ -223,6 +223,58 @@ function readBody(req, limit) {
 // `from` added. Binary
 // messages (game inputs) are [target id length, target id, payload]; they arrive
 // as [sender id length, sender id, payload].
+//
+// The match clock (web/clock.js, loaded from the game this server serves, so pages and server
+// always run the same clock): {t:'clock', ids} from the host as the match starts makes one for the
+// room, with the players in slot order (once per match id: a repeat changes nothing). Binary messages to '@clock' are a player's inputs for it,
+// and its bundles go to every player as binary from '@clock'; every 2 s it says
+// {t:'msg', from:'@clock', data:{lobby:'lag', late}}. {t:'resume', from} (a player back on a new
+// connection) sends that player the bundles from tick `from` again, or {t:'resume-failed'} when
+// they are too old; {t:'leave-match'} drops the player from the clock at once.
+
+const { MatchClock } = await import(pathToFileURL(join(WEB_ROOT, 'clock.js')).href);
+const CLOCK = '@clock';
+const CLOCK_FRAME = Buffer.concat([Buffer.from([CLOCK.length]), Buffer.from(CLOCK)]);
+const clocks = new Map(); // room -> {clock, ids, timer}
+
+function startClock(room, ids, match, left) {
+  if (clocks.get(room)?.match === match) return; // this match's clock runs already
+  stopClock(room);
+  const deliver = (out) => {
+    const members = rooms.get(room) || new Map();
+    for (const id of ids) {
+      const peer = members.get(id);
+      if (peer && peer.readyState === 1) peer.send(out);
+    }
+  };
+  const clock = new MatchClock({ players: ids.length, send: (bytes) => deliver(Buffer.concat([CLOCK_FRAME, bytes])) });
+  for (const id of left) if (ids.includes(id)) clock.leave(ids.indexOf(id)); // gone while the match loaded
+  let late = clock.stats().map((x) => x.late);
+  let lagAt = Date.now();
+  const timer = setInterval(() => {
+    clock.poll();
+    if (Date.now() - lagAt >= 2000) {
+      lagAt = Date.now();
+      const now = clock.stats().map((x) => x.late);
+      deliver(JSON.stringify({ t: 'msg', from: CLOCK, data: { lobby: 'lag', late: now.map((n, i) => n - late[i]) } }));
+      late = now;
+    }
+    if (clock.done) {
+      // over: its bundles stay a minute for a game that comes back and asks (it learns it was dropped)
+      clearInterval(timer);
+      const entry = clocks.get(room);
+      setTimeout(() => { if (clocks.get(room) === entry) clocks.delete(room); }, 60000).unref();
+    }
+  }, 4);
+  clocks.set(room, { clock, ids, match, timer });
+}
+
+function stopClock(room) {
+  const c = clocks.get(room);
+  if (!c) return;
+  clearInterval(c.timer);
+  clocks.delete(room);
+}
 
 const rooms = new Map(); // room -> Map(id -> socket)
 const MAX_ROOM = 12;
@@ -258,6 +310,12 @@ function relay(ws) {
       const n = data[0];
       const to = data.subarray(1, 1 + n).toString();
       const payload = data.subarray(1 + n);
+      if (to === CLOCK) {
+        const c = clocks.get(room);
+        const slot = c ? c.ids.indexOf(id) : -1;
+        if (slot >= 0) c.clock.input(slot, payload);
+        return;
+      }
       const from = Buffer.from(id);
       const out = Buffer.concat([Buffer.from([from.length]), from, payload]);
       for (const [, peer] of target(to)) peer.send(out, { binary: true });
@@ -284,6 +342,19 @@ function relay(ws) {
       for (const [, peer] of members) peer.send(JSON.stringify({ t: 'joined', id }));
       members.set(id, ws);
       rooms.set(room, members);
+    } else if (room && m.t === 'clock' && Array.isArray(m.ids) && m.ids.length >= 1 && m.ids.length <= 6 &&
+      m.ids.every((x) => typeof x === 'string') && m.ids.includes(id)) {
+      startClock(room, m.ids.slice(), String(m.match || ''), Array.isArray(m.left) ? m.left : []);
+    } else if (room && m.t === 'resume' && Number.isInteger(m.from) && m.from >= 0) {
+      const c = clocks.get(room);
+      if (!c || !c.ids.includes(id)) return ws.send(JSON.stringify({ t: 'resume-failed' })); // e.g. after a restart
+      const missed = c.clock.since(m.from);
+      if (!missed) return ws.send(JSON.stringify({ t: 'resume-failed' }));
+      for (const bytes of missed) ws.send(Buffer.concat([CLOCK_FRAME, bytes]));
+    } else if (room && m.t === 'leave-match') {
+      const c = clocks.get(room);
+      const slot = c ? c.ids.indexOf(id) : -1;
+      if (slot >= 0) c.clock.leave(slot);
     } else if (room && ['msg', 'ping', 'pong'].includes(m.t)) {
       const out = JSON.stringify({ ...m, from: id });
       for (const [, peer] of target(m.to)) peer.send(out);
@@ -296,6 +367,12 @@ function relay(ws) {
     members.delete(id);
     if (!members.size) rooms.delete(room);
     for (const [, peer] of members) peer.send(JSON.stringify({ t: 'left', id }));
+    // a player whose game never sent an input and who isn't back in 5 s: the clock starts without them
+    const c = clocks.get(room);
+    const slot = c ? c.ids.indexOf(id) : -1;
+    if (slot >= 0 && !c.clock.stats()[slot].seen) {
+      setTimeout(() => { if (clocks.get(room) === c && !rooms.get(room)?.has(id)) c.clock.leave(slot); }, 5000).unref();
+    }
   });
 }
 
