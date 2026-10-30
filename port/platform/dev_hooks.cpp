@@ -18,6 +18,8 @@
 #include "rng.hpp"
 #include "Char_Pool.hpp"
 #include "port_coop.hpp"
+#include "Object_2C_Pool.hpp"
+#include "Object_5C.hpp"
 
 namespace
 {
@@ -336,8 +338,10 @@ namespace
 constexpr s32 kSyncTicks = 1024;
 s32 gSyncTick = 0;
 // tick, game RNG, world RNG, peds, hash of the peds (id, position, health), cars, hash of the cars
-// (id, position, rotation), 0, 0. Peds and cars are the simulation's own pools; sprites are not used,
-// since their cached boxes are built lazily for what each player's screen shows.
+// (id, position, rotation), hash of the objects (bullets and rockets, pick-ups, debris: id, model,
+// position, in the pool's order), hash of the players (cash, wanted points, health, weapon and ammo,
+// in a car). Peds, cars and objects are the simulation's own pools; sprites are not used, since
+// their cached boxes are built lazily for what each player's screen shows.
 s32 gSyncHistory[kSyncTicks][9];
 s32 gSyncDumpAt = -1;
 s32 gSyncDump[1 + 5031 * 5]; // count, then type, x, y, z, rotation per sprite
@@ -373,6 +377,35 @@ extern "C" void Gta2Port_SyncRecord()
         }
     }
     row[6] = static_cast<s32>(h);
+    h = 2166136261u;
+    for (Object_2C* o = gObject_2C_Pool_6F8F80 ? gObject_2C_Pool_6F8F80->GetFirstUsed_4B8FD0() : nullptr; o; o = o->mpNext)
+    {
+        h = mix(mix(h, o->field_14_id), o->field_18_model);
+        if (const Sprite* sp = o->field_4)
+        {
+            h = mix(mix(mix(h, sp->field_14_xy.x.mValue), sp->field_14_xy.y.mValue), sp->field_1C_zpos.mValue);
+        }
+    }
+    row[7] = static_cast<s32>(h);
+    h = 2166136261u;
+    for (u8 i = 0; gGame_0x40_67E008 && i < MAX_PLAYERS; ++i)
+    {
+        Player* p = gGame_0x40_67E008->get_player_4219E0(i);
+        if (!p || !p->field_8E_bInUse)
+        {
+            continue;
+        }
+        h = mix(mix(h, i), p->GetScore_421980());
+        if (Ped* ped = p->field_2C4_player_ped)
+        {
+            h = mix(mix(mix(h, ped->field_20A_wanted_points), ped->field_216_health), ped->get_car_416B60() ? 1 : 0);
+            if (Weapon_30* w = ped->field_170_selected_weapon)
+            {
+                h = mix(mix(h, w->field_1C_idx), w->get_ammo_4A4FE0());
+            }
+        }
+    }
+    row[8] = static_cast<s32>(h);
     if (gSyncTick == gSyncDumpAt && gSprite_Pool_703818)
     {
         s32 n = 0;

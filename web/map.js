@@ -407,14 +407,21 @@ export class Gta2Map {
     image.height = width;
     const ctx = image.getContext('2d');
     const bytes = width * PX * ROWS_PER_CHUNK * 4;
-    const buf = M._malloc(bytes);
     let x0 = 256, y0 = 256, x1 = -1, y1 = -1;
     try {
       for (let row = 0; row < 256; row += ROWS_PER_CHUNK) {
         if (this.epoch !== epoch) return; // a different district loaded meanwhile
-        if (!M.ccall('gta2_port_map_render_rows', 'number', ['number', 'number', 'number', 'number'],
-          [row, ROWS_PER_CHUNK, PX, buf])) return;
-        const px = new Uint8ClampedArray(M.HEAPU8.buffer, buf, bytes).slice();
+        // a buffer per step, freed before the next: co-op prediction (web/rollback.js) puts the
+        // game's memory back between frames, and a buffer kept across them could be handed out again
+        const buf = M._malloc(bytes);
+        let px;
+        try {
+          if (!M.ccall('gta2_port_map_render_rows', 'number', ['number', 'number', 'number', 'number'],
+            [row, ROWS_PER_CHUNK, PX, buf])) return;
+          px = new Uint8ClampedArray(M.HEAPU8.buffer, buf, bytes).slice();
+        } finally {
+          M._free(buf);
+        }
         ctx.putImageData(new ImageData(px, width, PX * ROWS_PER_CHUNK), 0, row * PX);
         for (let r = 0; r < ROWS_PER_CHUNK; r++) {
           for (let bx = 0; bx < 256; bx++) {
@@ -435,7 +442,6 @@ export class Gta2Map {
       }
       this.bounds = x1 >= 0 ? { x0, y0, x1: x1 + 1, y1: y1 + 1 } : { x0: 0, y0: 0, x1: 256, y1: 256 };
     } finally {
-      M._free(buf);
       this.building = false;
     }
   }

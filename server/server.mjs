@@ -7,7 +7,9 @@
 //   /api/crews        saved Gang Wars crews: the leaderboard (GET)
 //   /api/match        a finished Gang Wars match, for the crews' stats and reputation (POST)
 //   /relay            WebSocket: co-op rooms; every message goes through the server
-//                     (a star), so players connect on any network
+//                     (a star), so players connect on any network. Rooms live here
+//                     and nowhere else: the pages may only connect to this server
+//                     (Content-Security-Policy connect-src), never to public trackers.
 // HTTPS comes from a reverse proxy in front (Caddy on the VPS, see README.md).
 //
 // Environment:
@@ -17,10 +19,10 @@
 //   crews; writable; default build/server-data).
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { readdir, stat } from 'node:fs/promises';
+import { readFile, readdir, stat } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { extname, join, relative, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { CrewStore } from './crews.mjs';
 
@@ -32,6 +34,10 @@ const GAME_ROOT = resolve(process.env.GAME_ROOT || join(REPO, 'game'));
 const PASSWORD = process.env.GTA2_PASSWORD || '';
 const DATA_DIR = resolve(process.env.DATA_DIR || join(REPO, 'build/server-data')); // saved crews (writable)
 const PUBLIC_URL = (process.env.PUBLIC_URL || `http://${HOST}:${PORT}`).replace(/\/$/, '');
+// The browser refuses any connection but to this server ('self' and its WebSocket address, spelled
+// out for older Safari; data:/blob: for imported saves): co-op can't reach public trackers, even from
+// an archived version whose own config.json says "static".
+const CSP = `connect-src 'self' ${PUBLIC_URL.replace(/^http/, 'ws')} data: blob:`;
 
 if (!PASSWORD && !['127.0.0.1', 'localhost', '::1'].includes(HOST)) {
   console.error('server: set GTA2_PASSWORD to listen on anything but this computer');
@@ -120,6 +126,7 @@ async function gameManifest() {
 
 const server = createServer(async (req, res) => {
   try {
+    res.setHeader('Content-Security-Policy', CSP);
     const url = new URL(req.url, 'http://x');
     if (url.searchParams.has('invite')) {
       // chat apps sometimes glue punctuation (or Markdown's **) onto a pasted link: only the code counts
@@ -137,6 +144,9 @@ const server = createServer(async (req, res) => {
       return loggedIn(req) ? redirect(res, '/') : html(res, LOGIN_PAGE(false, url.searchParams.get('invite') === 'bad'));
     }
     if (!loggedIn(req)) return redirect(res, '/login');
+    // an archived version (old/<build>/, the Saves screen's "Open in its version") runs on this server
+    // too: its config, game files and crews are this server's (its own config.json is the static site's)
+    url.pathname = url.pathname.replace(/^\/old\/[0-9a-f]+\/(?=config\.json$|gamedata\/|api\/)/, '/');
 
     if (url.pathname === '/api/crews' && req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
@@ -202,16 +212,86 @@ function readBody(req, limit) {
 
 // ---- co-op relay ----
 //
-// A client joins a room with its own id: {t:'join', room, id}. The server answers
+// A client joins a room with its own id: {t:'join', room, id, key}. The server answers
 // {t:'peers', ids} and tells the others {t:'joined', id}; {t:'left', id} when a
-// socket closes. Text messages {t:'msg', to, data} and {t:'ping'|'pong', to, n}
-// go to one peer (to) or everyone else (to null) with `from` added. Binary
+// socket closes. A join with an id already in the room and the same key is that
+// player back on a new connection (the old one dropped): it replaces the old one,
+// and the others see a leave and a join. Every 15 seconds the server pings each
+// socket (one that missed the last ping is closed) and says {t:'hb'}, so the page
+// notices a dead connection too. Text messages {t:'msg', to, data} and
+// {t:'ping'|'pong', to, n} go to one peer (to) or everyone else (to null) with
+// `from` added. Binary
 // messages (game inputs) are [target id length, target id, payload]; they arrive
 // as [sender id length, sender id, payload].
+//
+// The match clock (web/clock.js, loaded from the game this server serves, so pages and server
+// always run the same clock): {t:'clock', ids} from the host as the match starts makes one for the
+// room, with the players in slot order (once per match id: a repeat changes nothing). Binary messages to '@clock' are a player's inputs for it,
+// and its bundles go to every player as binary from '@clock'; every 2 s it says
+// {t:'msg', from:'@clock', data:{lobby:'lag', late}}. {t:'resume', from} (a player back on a new
+// connection) sends that player the bundles from tick `from` again, or {t:'resume-failed'} when
+// they are too old; {t:'leave-match'} drops the player from the clock at once.
+
+const { MatchClock } = await import(pathToFileURL(join(WEB_ROOT, 'clock.js')).href);
+// The build this server serves (build_pages.py: shell.js?v=<hash>; 'dev' unversioned). A page of
+// another build may not join a room: an old tab would play the match with older code (another
+// netcode, other checksums), and nothing on its side would say so. It gets {t:'outdated'}.
+const SERVER_BUILD = await readFile(join(WEB_ROOT, 'index.html'), 'utf8')
+  .then((html) => (/shell\.js\?v=([0-9a-f]+)/.exec(html) || [])[1] || 'dev', () => 'dev');
+const CLOCK = '@clock';
+const CLOCK_FRAME = Buffer.concat([Buffer.from([CLOCK.length]), Buffer.from(CLOCK)]);
+const clocks = new Map(); // room -> {clock, ids, timer}
+
+function startClock(room, ids, match, left) {
+  if (clocks.get(room)?.match === match) return; // this match's clock runs already
+  stopClock(room);
+  const deliver = (out) => {
+    const members = rooms.get(room) || new Map();
+    for (const id of ids) {
+      const peer = members.get(id);
+      if (peer && peer.readyState === 1) peer.send(out);
+    }
+  };
+  const clock = new MatchClock({ players: ids.length, send: (bytes) => deliver(Buffer.concat([CLOCK_FRAME, bytes])) });
+  for (const id of left) if (ids.includes(id)) clock.leave(ids.indexOf(id)); // gone while the match loaded
+  let late = clock.stats().map((x) => x.late);
+  let lagAt = Date.now();
+  const timer = setInterval(() => {
+    clock.poll();
+    if (Date.now() - lagAt >= 2000) {
+      lagAt = Date.now();
+      const now = clock.stats().map((x) => x.late);
+      deliver(JSON.stringify({ t: 'msg', from: CLOCK, data: { lobby: 'lag', late: now.map((n, i) => n - late[i]) } }));
+      late = now;
+    }
+    if (clock.done) {
+      // over: its bundles stay a minute for a game that comes back and asks (it learns it was dropped)
+      clearInterval(timer);
+      const entry = clocks.get(room);
+      setTimeout(() => { if (clocks.get(room) === entry) clocks.delete(room); }, 60000).unref();
+    }
+  }, 4);
+  clocks.set(room, { clock, ids, match, timer });
+}
+
+function stopClock(room) {
+  const c = clocks.get(room);
+  if (!c) return;
+  clearInterval(c.timer);
+  clocks.delete(room);
+}
 
 const rooms = new Map(); // room -> Map(id -> socket)
 const MAX_ROOM = 12;
 const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
+setInterval(() => {
+  for (const ws of wss.clients) {
+    if (!ws.alive) { ws.terminate(); continue; }
+    ws.alive = false;
+    ws.ping();
+    ws.send('{"t":"hb"}');
+  }
+}, 15000).unref();
 
 server.on('upgrade', (req, socket, head) => {
   if (new URL(req.url, 'http://x').pathname !== '/relay' || !loggedIn(req)) {
@@ -224,6 +304,8 @@ server.on('upgrade', (req, socket, head) => {
 function relay(ws) {
   let room = null;
   let id = null;
+  ws.alive = true;
+  ws.on('pong', () => { ws.alive = true; });
   const others = () => [...(rooms.get(room) || new Map())].filter(([peer]) => peer !== id);
   const target = (to) => (to ? others().filter(([peer]) => peer === to) : others());
 
@@ -233,6 +315,12 @@ function relay(ws) {
       const n = data[0];
       const to = data.subarray(1, 1 + n).toString();
       const payload = data.subarray(1 + n);
+      if (to === CLOCK) {
+        const c = clocks.get(room);
+        const slot = c ? c.ids.indexOf(id) : -1;
+        if (slot >= 0) c.clock.input(slot, payload);
+        return;
+      }
       const from = Buffer.from(id);
       const out = Buffer.concat([Buffer.from([from.length]), from, payload]);
       for (const [, peer] of target(to)) peer.send(out, { binary: true });
@@ -240,16 +328,41 @@ function relay(ws) {
     }
     let m;
     try { m = JSON.parse(data.toString()); } catch { return; }
-    if (m.t === 'join' && !room && typeof m.room === 'string' && typeof m.id === 'string' && m.id.length < 64) {
-      const members = rooms.get(m.room) || new Map();
-      if (members.size >= MAX_ROOM) return ws.send(JSON.stringify({ t: 'full' }));
-      if (members.has(m.id)) return ws.send(JSON.stringify({ t: 'taken' }));
-      room = m.room.slice(0, 32);
+    if (m.t === 'join' && !room && m.build !== SERVER_BUILD) {
+      ws.send(JSON.stringify({ t: 'outdated' }));
+      ws.close();
+    } else if (m.t === 'join' && !room && typeof m.room === 'string' && typeof m.id === 'string' && m.id.length < 64) {
+      const name = m.room.slice(0, 32);
+      const members = rooms.get(name) || new Map();
+      const old = members.get(m.id);
+      const back = old && typeof m.key === 'string' && m.key.length >= 16 && old.key === m.key;
+      if (old && !back) return ws.send(JSON.stringify({ t: 'taken' }));
+      if (!old && members.size >= MAX_ROOM) return ws.send(JSON.stringify({ t: 'full' }));
+      if (back) {
+        members.delete(m.id);
+        old.terminate();
+        for (const [, peer] of members) peer.send(JSON.stringify({ t: 'left', id: m.id }));
+      }
+      room = name;
       id = m.id;
+      ws.key = typeof m.key === 'string' ? m.key.slice(0, 64) : '';
       ws.send(JSON.stringify({ t: 'peers', ids: [...members.keys()] }));
       for (const [, peer] of members) peer.send(JSON.stringify({ t: 'joined', id }));
       members.set(id, ws);
       rooms.set(room, members);
+    } else if (room && m.t === 'clock' && Array.isArray(m.ids) && m.ids.length >= 1 && m.ids.length <= 6 &&
+      m.ids.every((x) => typeof x === 'string') && m.ids.includes(id)) {
+      startClock(room, m.ids.slice(), String(m.match || ''), Array.isArray(m.left) ? m.left : []);
+    } else if (room && m.t === 'resume' && Number.isInteger(m.from) && m.from >= 0) {
+      const c = clocks.get(room);
+      if (!c || !c.ids.includes(id)) return ws.send(JSON.stringify({ t: 'resume-failed' })); // e.g. after a restart
+      const missed = c.clock.since(m.from);
+      if (!missed) return ws.send(JSON.stringify({ t: 'resume-failed' }));
+      for (const bytes of missed) ws.send(Buffer.concat([CLOCK_FRAME, bytes]));
+    } else if (room && m.t === 'leave-match') {
+      const c = clocks.get(room);
+      const slot = c ? c.ids.indexOf(id) : -1;
+      if (slot >= 0) c.clock.leave(slot);
     } else if (room && ['msg', 'ping', 'pong'].includes(m.t)) {
       const out = JSON.stringify({ ...m, from: id });
       for (const [, peer] of target(m.to)) peer.send(out);
@@ -258,17 +371,23 @@ function relay(ws) {
 
   ws.on('close', () => {
     const members = rooms.get(room);
-    if (!members) return;
+    if (!members || members.get(id) !== ws) return; // never joined, or replaced by a new connection
     members.delete(id);
     if (!members.size) rooms.delete(room);
     for (const [, peer] of members) peer.send(JSON.stringify({ t: 'left', id }));
+    // a player whose game never sent an input and who isn't back in 5 s: the clock starts without them
+    const c = clocks.get(room);
+    const slot = c ? c.ids.indexOf(id) : -1;
+    if (slot >= 0 && !c.clock.stats()[slot].seen) {
+      setTimeout(() => { if (clocks.get(room) === c && !rooms.get(room)?.has(id)) c.clock.leave(slot); }, 5000).unref();
+    }
   });
 }
 
 const crews = await new CrewStore(DATA_DIR).load();
 
 server.listen(PORT, HOST, () => {
-  console.log(`server: http://${HOST}:${PORT} (game ${WEB_ROOT}, files ${GAME_ROOT})`);
+  console.log(`server: http://${HOST}:${PORT} (game ${WEB_ROOT}, build ${SERVER_BUILD}, files ${GAME_ROOT})`);
   if (PASSWORD) console.log(`server: invite link ${PUBLIC_URL}/?invite=${INVITE}`);
   else console.log('server: no password (this computer only)');
 });

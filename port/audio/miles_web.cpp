@@ -67,6 +67,11 @@ struct Stream
     S32 positionMs = 0;
 };
 
+// Co-op prediction (winmain.cpp): a predicted tick is silent. The game's state goes back to the
+// last confirmed tick before the next one, and only confirmed ticks play sound, so nothing a
+// predicted tick does may reach web/audio.js (its questions still do: they change nothing).
+bool gMuted = false;
+
 // Every sample and stream handle, so a quick load can rebuild what web/audio.js plays.
 std::vector<Sample*> gSamples;
 std::vector<Stream*> gStreams;
@@ -110,13 +115,16 @@ void Start(Sample* s)
 {
     s->startMs = Now();
     s->stopped = false;
-    gta2_js_sample_start(Id(s), s->data, static_cast<int>(s->len), s->rate, s->format, s->loops, s->loopStart, s->loopEnd,
-                         s->volume, s->pan);
+    if (!gMuted)
+    {
+        gta2_js_sample_start(Id(s), s->data, static_cast<int>(s->len), s->rate, s->format, s->loops, s->loopStart, s->loopEnd,
+                             s->volume, s->pan);
+    }
 }
 
 void Stop(Sample* s)
 {
-    if (Playing(s))
+    if (Playing(s) && !gMuted)
     {
         gta2_js_sample_stop(Id(s));
     }
@@ -125,7 +133,7 @@ void Stop(Sample* s)
 
 void Update(Sample* s)
 {
-    if (Playing(s))
+    if (Playing(s) && !gMuted)
     {
         gta2_js_sample_update(Id(s), s->volume, s->pan, s->rate);
     }
@@ -138,6 +146,11 @@ Sample* AsSample(void* h)
 
 int gDriver;
 } // namespace
+
+extern "C" void Gta2Port_AudioMute(int on)
+{
+    gMuted = on != 0;
+}
 
 extern "C" {
 
@@ -329,7 +342,9 @@ U32 AILCALL AIL_3D_sample_status(H3DSAMPLE S)
 HSTREAM AILCALL AIL_open_stream(HDIGDRIVER, char FAR* filename, S32)
 {
     Stream* s = new Stream();
-    if (!gta2_js_stream_open(Id(s), gta2_port_normalise_path(filename)))
+    // a predicted tick's stream (a radio station) is only real once its tick is confirmed: web/audio.js
+    // does not hear of it (it could replace a playing stream that had the same address)
+    if (!gMuted && !gta2_js_stream_open(Id(s), gta2_port_normalise_path(filename)))
     {
         delete s;
         return nullptr; // missing or unreadable file: the game handles a null stream
@@ -340,14 +355,20 @@ HSTREAM AILCALL AIL_open_stream(HDIGDRIVER, char FAR* filename, S32)
 }
 void AILCALL AIL_close_stream(HSTREAM s)
 {
-    gta2_js_stream_close(Id(s));
+    if (!gMuted)
+    {
+        gta2_js_stream_close(Id(s));
+    }
     Forget(gStreams, reinterpret_cast<Stream*>(s));
     delete reinterpret_cast<Stream*>(s);
 }
 void AILCALL AIL_start_stream(HSTREAM s)
 {
     reinterpret_cast<Stream*>(s)->started = true;
-    gta2_js_stream_start(Id(s), reinterpret_cast<Stream*>(s)->loops);
+    if (!gMuted)
+    {
+        gta2_js_stream_start(Id(s), reinterpret_cast<Stream*>(s)->loops);
+    }
 }
 S32 AILCALL AIL_stream_status(HSTREAM s)
 {
@@ -359,7 +380,10 @@ void AILCALL AIL_set_stream_loop_count(HSTREAM s, S32 count)
 }
 void AILCALL AIL_set_stream_ms_position(HSTREAM s, S32 ms)
 {
-    gta2_js_stream_seek(Id(s), ms);
+    if (!gMuted)
+    {
+        gta2_js_stream_seek(Id(s), ms);
+    }
 }
 void AILCALL AIL_stream_ms_position(HSTREAM s, S32 FAR* total, S32 FAR* current)
 {
@@ -376,7 +400,10 @@ void AILCALL AIL_set_stream_playback_rate(HSTREAM s, S32 rate)
 {
     Stream* st = reinterpret_cast<Stream*>(s);
     st->rate = rate;
-    gta2_js_stream_set(Id(s), st->volume, st->rate);
+    if (!gMuted)
+    {
+        gta2_js_stream_set(Id(s), st->volume, st->rate);
+    }
 }
 S32 AILCALL AIL_stream_playback_rate(HSTREAM s)
 {
@@ -386,7 +413,10 @@ void AILCALL AIL_set_stream_volume(HSTREAM s, S32 volume)
 {
     Stream* st = reinterpret_cast<Stream*>(s);
     st->volume = volume;
-    gta2_js_stream_set(Id(s), st->volume, st->rate);
+    if (!gMuted)
+    {
+        gta2_js_stream_set(Id(s), st->volume, st->rate);
+    }
 }
 S32 AILCALL AIL_stream_volume(HSTREAM s)
 {

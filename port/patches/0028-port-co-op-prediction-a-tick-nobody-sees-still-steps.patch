@@ -1,0 +1,34 @@
+From 4ad746dfd49e36f48bfb7507e79dd9f288daba1d Mon Sep 17 00:00:00 2001
+From: GTA2 port <port@localhost>
+Date: Thu, 29 Oct 2026 22:42:27 +0100
+Subject: [PATCH] port: co-op prediction: a tick nobody sees still steps the
+ ambient light's fade (the map's draw does that once per tick)
+
+---
+ Source/Game_0x40.cpp | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/Source/Game_0x40.cpp b/Source/Game_0x40.cpp
+index dd08f169..c6104510 100644
+--- a/Source/Game_0x40.cpp
++++ b/Source/Game_0x40.cpp
+@@ -425,7 +425,15 @@ void Game_0x40::Draw_4B92D0()
+ 
+ #ifdef GTA2_PORT
+     Gta2Port_SetFrameLayout(gViewCamera_676978->field_68_screen_px_width, 0);
+-    if (!gGta2PortSkipWorldDraw)
++    if (gGta2PortSkipWorldDraw)
++    {
++        // what the map's draw does to the game besides drawing: the ambient light's fade steps on
++        if (gLighting_626A09)
++        {
++            gpMapRenderer_6F66E4->ambient_light_tick_4E9EA0();
++        }
++    }
++    else
+ #endif
+     gpMapRenderer_6F66E4->Draw_4F6A20(); // Note: Also seems to draw sprites
+ 
+-- 
+2.54.0 (Apple Git-157)
+
