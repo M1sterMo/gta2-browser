@@ -20,14 +20,24 @@ struct WindowClass
 {
     WNDPROC proc = nullptr;
 };
-std::map<std::string, WindowClass> gClasses;
+inline std::map<std::string, WindowClass>& GetClasses() {
+    static std::map<std::string, WindowClass> sClasses;
+    return sClasses;
+}
+#define gClasses (GetClasses())
+
 WNDPROC gWndProc = nullptr;
 HWND const kMainWindow = reinterpret_cast<HWND>(0x1000);
 bool gWindowAlive = false;
 LONG gWindowLongs[32] = {};
 int gCursorCount = 0;
 bool gShown = false;
-std::deque<MSG> gQueue;
+
+inline std::deque<MSG>& GetQueue() {
+    static std::deque<MSG> sQueue;
+    return sQueue;
+}
+#define gQueue (GetQueue())
 
 std::string Lower(const char* s)
 {
@@ -50,8 +60,18 @@ struct RegValue
     DWORD type = REG_NONE;
     std::vector<BYTE> data;
 };
-std::map<std::string, std::map<std::string, RegValue>> gRegistry;
-std::map<uintptr_t, std::string> gOpenKeys;
+inline std::map<std::string, std::map<std::string, RegValue>>& GetRegistry() {
+    static std::map<std::string, std::map<std::string, RegValue>> sRegistry;
+    return sRegistry;
+}
+#define gRegistry (GetRegistry())
+
+inline std::map<uintptr_t, std::string>& GetOpenKeys() {
+    static std::map<uintptr_t, std::string> sOpenKeys;
+    return sOpenKeys;
+}
+#define gOpenKeys (GetOpenKeys())
+
 uintptr_t gNextKey = 0x100;
 
 std::string RootName(HKEY root)

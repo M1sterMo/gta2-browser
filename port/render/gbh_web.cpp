@@ -464,7 +464,10 @@ u32 CC gbh_RegisterPalette(s32 id, DWORD* data)
         }
     }
     Palette& pal = gPalettes[id];
-    free(pal.data565 ? pal.data565 - 2 : nullptr);
+    if (pal.data565)
+    {
+        free(pal.data565 - 2);
+    }
     u16* block = static_cast<u16*>(malloc((2 + 512) * sizeof(u16)));
     const u32 id32 = static_cast<u32>(id);
     memcpy(block, &id32, 4);

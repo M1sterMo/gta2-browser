@@ -1,8 +1,40 @@
-# GTA2 in your browser
+# Grand Theft Auto 2 - Native Linux & Web Port
 
-**Grand Theft Auto 2 (1999), the real game, in a browser tab.** No install and no plugins.
-Click Play and you're stealing a Z-Type in Downtown Anywhere City about a minute later.
-Bring friends: co-op, Gang Wars and free-for-all, browser to browser.
+**Grand Theft Auto 2 (1999), the real game, running 100% natively on Linux (64-bit ELF, Zero Wine) and in modern Web Browsers.**
+
+* **Native Linux Desktop**: Native 64-bit ELF binary running directly on Linux with **SDL2**, **OpenGL 3.3 Core Profile**, and native **ALSA / PulseAudio / PipeWire** audio mixing. No Wine, no Proton, no Windows DLLs.
+* **Web Browser Version**: WebAssembly build via Emscripten with WebGL2 and Web Audio.
+
+---
+
+## 🐧 Native Linux Desktop Build
+
+### Features
+* **Zero Wine / Zero Emulation**: Authentic 64-bit Linux ELF binary (`gta2_linux`).
+* **Hardware Accelerated Graphics**: Modern OpenGL 3.3 Core Profile renderer.
+* **Native Audio Engine**: Real-time SDL2 multi-channel audio mixer supporting sound bank SFX (`.sdt`/`.raw`) and speech/radio streams (`.wav`).
+* **64-bit Architecture Ready**: Custom `ScrPtr` handle layer preserving 32-bit binary level script layout while executing with 64-bit pointers.
+* **Window Management**: Fullscreen or resizable window, keyboard, and controller input via SDL2.
+
+### Quick Start (Linux)
+1. Ensure dependencies are installed:
+   ```bash
+   sudo apt install g++ libsdl2-dev libgl-dev
+   ```
+2. Build the native Linux binary:
+   ```bash
+   python3 scripts/build_linux_native.py
+   ```
+3. Run with your GTA 2 data files:
+   ```bash
+   ./build/linux_native/gta2_linux /path/to/gta2/data
+   ```
+
+---
+
+## 🌐 GTA2 in your browser
+
+**Click Play and you're stealing a Z-Type in Downtown Anywhere City about a minute later.** No install and no plugins.
 
 ### ▶ [Play now: m1stermo.github.io/gta2](https://m1stermo.github.io/gta2/)
 
@@ -172,11 +204,10 @@ has a list of ideas with pointers to where each one starts in the code.
   project, not affiliated with either. **This repository contains no game files.** Players get
   the official freeware release from the Internet Archive, or use their own copy.
 - **The engine** comes from the [`gta2_re`](https://github.com/CriminalRETeam/gta2_re)
-  decompilation by the CriminalRETeam contributors, applied here as patches. Their terms apply
+  decompilation by the **CriminalRETeam** contributors, applied here as patches. Their terms apply
   to those patches.
+- **The OpenGL/shader and platform abstraction** was created by **M1sterMo** ([`gta2-browser`](https://github.com/M1sterMo/gta2-browser)).
+- **The Native Linux Desktop Port** (64-bit `ScrPtr` script pointer layer, native SDL2 + OpenGL 3.3 Core desktop support, real-time ALSA/Pulse/PipeWire SDL audio mixer, and 64-bit alignment fixes) was developed and integrated for native Linux execution.
 - Also used: [`unshield`](https://github.com/twogood/unshield) (MIT, unpacks the installer),
-  [Trystero](https://github.com/dmotz/trystero) (MIT, peer-to-peer co-op) and
-  [Emscripten](https://emscripten.org).
-- **This port** was built with Claude (Anthropic) in Claude Code. The
-  [build log](docs/benchmark-report.md) has the story. Our own code is MIT-licensed (see
-  `LICENSE`).
+  [Trystero](https://github.com/dmotz/trystero) (MIT, peer-to-peer co-op),
+  SDL2 (zlib license), and [Emscripten](https://emscripten.org).

@@ -44,11 +44,11 @@ extern "C" {
 typedef int BOOL;
 typedef unsigned char BYTE;
 typedef unsigned short WORD;
-typedef unsigned long DWORD; /* 4 bytes on wasm32, as on Win32 */
+typedef uint32_t DWORD; /* 4 bytes on Win32, wasm32, and Linux 64-bit */
 typedef unsigned int UINT;
 typedef int INT;
-typedef long LONG;
-typedef unsigned long ULONG;
+typedef int32_t LONG;
+typedef uint32_t ULONG;
 typedef short SHORT;
 typedef unsigned short USHORT;
 typedef char CHAR;

@@ -40,10 +40,20 @@ BYTE gKeys[256];
 // Keys pressed since the last state read: a tap shorter than one game frame
 // still reads as down once (the game polls key state once per frame).
 BYTE gLatched[256];
-std::deque<DIDEVICEOBJECTDATA> gKeyEvents;
+inline std::deque<DIDEVICEOBJECTDATA>& GetKeyEvents() {
+    static std::deque<DIDEVICEOBJECTDATA> sEvents;
+    return sEvents;
+}
+#define gKeyEvents (GetKeyEvents())
+
 LONG gMouseDX = 0, gMouseDY = 0, gMouseDZ = 0;
 BYTE gMouseButtons[4];
-std::deque<DIDEVICEOBJECTDATA> gMouseEvents;
+
+inline std::deque<DIDEVICEOBJECTDATA>& GetMouseEvents() {
+    static std::deque<DIDEVICEOBJECTDATA> sEvents;
+    return sEvents;
+}
+#define gMouseEvents (GetMouseEvents())
 DWORD gSequence = 0;
 // Diagnostics, read by the shell: [kbd GetDeviceData calls, events returned, GetDeviceState calls, acquires]
 uint32_t gInputStats[4];

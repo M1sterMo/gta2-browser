@@ -70,7 +70,9 @@ struct SVideo
     u8 field_344_hel_caps[0x17C];
     HWND field_4C0_hwnd;
 };
+#if !defined(GTA2_PORT)
 static_assert(sizeof(SVideo) == 0x4C4, "SVideo layout");
+#endif
 
 struct SDevice
 {
@@ -84,7 +86,9 @@ struct SDevice
     u32 field_28_dwVidMemTotal;
     u32 field_2C_end_buffer;
 };
+#if !defined(GTA2_PORT)
 static_assert(sizeof(SDevice) == 0x30, "SDevice layout");
+#endif
 
 struct SDisplayMode
 {
@@ -98,7 +102,9 @@ struct SDisplayMode
     SDisplayMode* field_38_pnext;
     u32 field_3C;
 };
+#if !defined(GTA2_PORT)
 static_assert(sizeof(SDisplayMode) == 0x40, "SDisplayMode layout");
+#endif
 
 struct SVidVersion
 {

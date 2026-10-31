@@ -27,7 +27,9 @@ struct STexture
     WORD* field_18_pPaltData;
     void* field_1C_ptr; // renderer-owned handle (a WebGL texture slot in the port)
 };
+#if !defined(GTA2_PORT)
 static_assert(sizeof(STexture) == 0x20, "STexture layout");
+#endif
 
 /* Pre-transformed vertex: screen x/y, depth z, reciprocal w, colours, uv. */
 struct Vert

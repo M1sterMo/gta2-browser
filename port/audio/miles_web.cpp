@@ -76,6 +76,15 @@ template <typename T> void Forget(std::vector<T*>& list, T* p)
     list.erase(std::remove(list.begin(), list.end(), p), list.end());
 }
 
+template <typename T> bool IsValid(const std::vector<T*>& list, const void* p)
+{
+    if (!p) return false;
+    for (T* item : list) {
+        if (item == p) return true;
+    }
+    return false;
+}
+
 double Now()
 {
     return gta2_port_now_ms(); // continues across a quick load
@@ -108,6 +117,7 @@ bool Playing(const Sample* s)
 
 void Start(Sample* s)
 {
+    if (!s) return;
     s->startMs = Now();
     s->stopped = false;
     gta2_js_sample_start(Id(s), s->data, static_cast<int>(s->len), s->rate, s->format, s->loops, s->loopStart, s->loopEnd,
@@ -116,6 +126,7 @@ void Start(Sample* s)
 
 void Stop(Sample* s)
 {
+    if (!s) return;
     if (Playing(s))
     {
         gta2_js_sample_stop(Id(s));
@@ -125,6 +136,7 @@ void Stop(Sample* s)
 
 void Update(Sample* s)
 {
+    if (!s) return;
     if (Playing(s))
     {
         gta2_js_sample_update(Id(s), s->volume, s->pan, s->rate);
@@ -133,7 +145,14 @@ void Update(Sample* s)
 
 Sample* AsSample(void* h)
 {
+    if (!IsValid(gSamples, h)) return nullptr;
     return static_cast<Sample*>(h);
+}
+
+Stream* AsStream(void* h)
+{
+    if (!IsValid(gStreams, h)) return nullptr;
+    return static_cast<Stream*>(h);
 }
 
 int gDriver;
@@ -192,61 +211,84 @@ HSAMPLE AILCALL AIL_allocate_sample_handle(HDIGDRIVER)
 }
 void AILCALL AIL_release_sample_handle(HSAMPLE S)
 {
-    Stop(AsSample(S));
-    Forget(gSamples, AsSample(S));
-    delete AsSample(S);
+    Sample* s = AsSample(S);
+    if (!s) return;
+    Stop(s);
+    Forget(gSamples, s);
+    delete s;
 }
 void AILCALL AIL_init_sample(HSAMPLE S)
 {
-    Stop(AsSample(S));
-    *AsSample(S) = Sample();
+    Sample* s = AsSample(S);
+    if (!s) return;
+    Stop(s);
+    *s = Sample();
 }
 void AILCALL AIL_set_sample_address(HSAMPLE S, void FAR* start, U32 len)
 {
-    AsSample(S)->data = start;
-    AsSample(S)->len = len;
-    AsSample(S)->loopStart = 0;
-    AsSample(S)->loopEnd = -1;
+    Sample* s = AsSample(S);
+    if (!s) return;
+    s->data = start;
+    s->len = len;
+    s->loopStart = 0;
+    s->loopEnd = -1;
 }
 void AILCALL AIL_set_sample_type(HSAMPLE S, S32 format, U32)
 {
-    AsSample(S)->format = format;
+    Sample* s = AsSample(S);
+    if (!s) return;
+    s->format = format;
 }
 void AILCALL AIL_set_sample_playback_rate(HSAMPLE S, S32 rate)
 {
-    AsSample(S)->rate = rate;
-    Update(AsSample(S));
+    Sample* s = AsSample(S);
+    if (!s) return;
+    s->rate = rate;
+    Update(s);
 }
 void AILCALL AIL_set_sample_volume(HSAMPLE S, S32 volume)
 {
-    AsSample(S)->volume = volume;
-    Update(AsSample(S));
+    Sample* s = AsSample(S);
+    if (!s) return;
+    s->volume = volume;
+    Update(s);
 }
 void AILCALL AIL_set_sample_pan(HSAMPLE S, S32 pan)
 {
-    AsSample(S)->pan = pan;
-    Update(AsSample(S));
+    Sample* s = AsSample(S);
+    if (!s) return;
+    s->pan = pan;
+    Update(s);
 }
 void AILCALL AIL_set_sample_loop_count(HSAMPLE S, S32 count)
 {
-    AsSample(S)->loops = count;
+    Sample* s = AsSample(S);
+    if (!s) return;
+    s->loops = count;
 }
 void AILCALL AIL_set_sample_loop_block(HSAMPLE S, S32 start, S32 end)
 {
-    AsSample(S)->loopStart = start;
-    AsSample(S)->loopEnd = end;
+    Sample* s = AsSample(S);
+    if (!s) return;
+    s->loopStart = start;
+    s->loopEnd = end;
 }
 void AILCALL AIL_start_sample(HSAMPLE S)
 {
-    Start(AsSample(S));
+    Sample* s = AsSample(S);
+    if (!s) return;
+    Start(s);
 }
 void AILCALL AIL_end_sample(HSAMPLE S)
 {
-    Stop(AsSample(S));
+    Sample* s = AsSample(S);
+    if (!s) return;
+    Stop(s);
 }
 U32 AILCALL AIL_sample_status(HSAMPLE S)
 {
-    return Status(AsSample(S));
+    Sample* s = AsSample(S);
+    return s ? Status(s) : SMP_DONE;
 }
 
 // 3D samples (no 3D providers are enumerated, so the game uses 2D samples)
@@ -274,13 +316,16 @@ H3DSAMPLE AILCALL AIL_allocate_3D_sample_handle(HPROVIDER)
 }
 void AILCALL AIL_release_3D_sample_handle(H3DSAMPLE S)
 {
-    Stop(reinterpret_cast<Sample*>(S));
-    Forget(gSamples, reinterpret_cast<Sample*>(S));
-    delete reinterpret_cast<Sample*>(S);
+    Sample* s = AsSample(S);
+    if (!s) return;
+    Stop(s);
+    Forget(gSamples, s);
+    delete s;
 }
 S32 AILCALL AIL_set_3D_sample_info(H3DSAMPLE S, AILSOUNDINFO FAR* info)
 {
-    Sample* s = reinterpret_cast<Sample*>(S);
+    Sample* s = AsSample(S);
+    if (!s || !info) return 0;
     s->data = info->data_ptr;
     s->len = info->data_len;
     s->rate = info->rate;
@@ -289,22 +334,30 @@ S32 AILCALL AIL_set_3D_sample_info(H3DSAMPLE S, AILSOUNDINFO FAR* info)
 }
 void AILCALL AIL_set_3D_sample_playback_rate(H3DSAMPLE S, S32 rate)
 {
-    reinterpret_cast<Sample*>(S)->rate = rate;
-    Update(reinterpret_cast<Sample*>(S));
+    Sample* s = AsSample(S);
+    if (!s) return;
+    s->rate = rate;
+    Update(s);
 }
 void AILCALL AIL_set_3D_sample_volume(H3DSAMPLE S, S32 volume)
 {
-    reinterpret_cast<Sample*>(S)->volume = volume;
-    Update(reinterpret_cast<Sample*>(S));
+    Sample* s = AsSample(S);
+    if (!s) return;
+    s->volume = volume;
+    Update(s);
 }
 void AILCALL AIL_set_3D_sample_loop_count(H3DSAMPLE S, U32 loops)
 {
-    reinterpret_cast<Sample*>(S)->loops = static_cast<S32>(loops);
+    Sample* s = AsSample(S);
+    if (!s) return;
+    s->loops = static_cast<S32>(loops);
 }
 void AILCALL AIL_set_3D_sample_loop_block(H3DSAMPLE S, S32 start, S32 end)
 {
-    reinterpret_cast<Sample*>(S)->loopStart = start;
-    reinterpret_cast<Sample*>(S)->loopEnd = end;
+    Sample* s = AsSample(S);
+    if (!s) return;
+    s->loopStart = start;
+    s->loopEnd = end;
 }
 void AILCALL AIL_set_3D_sample_float_distances(H3DSAMPLE, F32, F32, F32, F32)
 {
@@ -314,15 +367,20 @@ void AILCALL AIL_set_3D_position(H3DPOBJECT, F32, F32, F32)
 }
 void AILCALL AIL_start_3D_sample(H3DSAMPLE S)
 {
-    Start(reinterpret_cast<Sample*>(S));
+    Sample* s = AsSample(S);
+    if (!s) return;
+    Start(s);
 }
 void AILCALL AIL_end_3D_sample(H3DSAMPLE S)
 {
-    Stop(reinterpret_cast<Sample*>(S));
+    Sample* s = AsSample(S);
+    if (!s) return;
+    Stop(s);
 }
 U32 AILCALL AIL_3D_sample_status(H3DSAMPLE S)
 {
-    return Status(reinterpret_cast<Sample*>(S));
+    Sample* s = AsSample(S);
+    return s ? Status(s) : SMP_DONE;
 }
 
 // Streams (speech, radio stations, music)
@@ -340,57 +398,77 @@ HSTREAM AILCALL AIL_open_stream(HDIGDRIVER, char FAR* filename, S32)
 }
 void AILCALL AIL_close_stream(HSTREAM s)
 {
-    gta2_js_stream_close(Id(s));
-    Forget(gStreams, reinterpret_cast<Stream*>(s));
-    delete reinterpret_cast<Stream*>(s);
+    Stream* st = AsStream(s);
+    if (!st) return;
+    gta2_js_stream_close(Id(st));
+    Forget(gStreams, st);
+    delete st;
 }
 void AILCALL AIL_start_stream(HSTREAM s)
 {
-    reinterpret_cast<Stream*>(s)->started = true;
-    gta2_js_stream_start(Id(s), reinterpret_cast<Stream*>(s)->loops);
+    Stream* st = AsStream(s);
+    if (!st) return;
+    st->started = true;
+    gta2_js_stream_start(Id(st), st->loops);
 }
 S32 AILCALL AIL_stream_status(HSTREAM s)
 {
-    return gta2_js_stream_playing(Id(s)) ? SMP_PLAYING : SMP_DONE;
+    Stream* st = AsStream(s);
+    if (!st) return SMP_DONE;
+    return gta2_js_stream_playing(Id(st)) ? SMP_PLAYING : SMP_DONE;
 }
 void AILCALL AIL_set_stream_loop_count(HSTREAM s, S32 count)
 {
-    reinterpret_cast<Stream*>(s)->loops = count;
+    Stream* st = AsStream(s);
+    if (!st) return;
+    st->loops = count;
 }
 void AILCALL AIL_set_stream_ms_position(HSTREAM s, S32 ms)
 {
-    gta2_js_stream_seek(Id(s), ms);
+    Stream* st = AsStream(s);
+    if (!st) return;
+    gta2_js_stream_seek(Id(st), ms);
 }
 void AILCALL AIL_stream_ms_position(HSTREAM s, S32 FAR* total, S32 FAR* current)
 {
+    Stream* st = AsStream(s);
+    if (!st) {
+        if (total) *total = 0;
+        if (current) *current = 0;
+        return;
+    }
     if (total)
     {
-        *total = gta2_js_stream_ms(Id(s), 0);
+        *total = gta2_js_stream_ms(Id(st), 0);
     }
     if (current)
     {
-        *current = gta2_js_stream_ms(Id(s), 1);
+        *current = gta2_js_stream_ms(Id(st), 1);
     }
 }
 void AILCALL AIL_set_stream_playback_rate(HSTREAM s, S32 rate)
 {
-    Stream* st = reinterpret_cast<Stream*>(s);
+    Stream* st = AsStream(s);
+    if (!st) return;
     st->rate = rate;
-    gta2_js_stream_set(Id(s), st->volume, st->rate);
+    gta2_js_stream_set(Id(st), st->volume, st->rate);
 }
 S32 AILCALL AIL_stream_playback_rate(HSTREAM s)
 {
-    return reinterpret_cast<Stream*>(s)->rate;
+    Stream* st = AsStream(s);
+    return st ? st->rate : 22050;
 }
 void AILCALL AIL_set_stream_volume(HSTREAM s, S32 volume)
 {
-    Stream* st = reinterpret_cast<Stream*>(s);
+    Stream* st = AsStream(s);
+    if (!st) return;
     st->volume = volume;
-    gta2_js_stream_set(Id(s), st->volume, st->rate);
+    gta2_js_stream_set(Id(st), st->volume, st->rate);
 }
 S32 AILCALL AIL_stream_volume(HSTREAM s)
 {
-    return reinterpret_cast<Stream*>(s)->volume;
+    Stream* st = AsStream(s);
+    return st ? st->volume : 127;
 }
 
 } // extern "C"

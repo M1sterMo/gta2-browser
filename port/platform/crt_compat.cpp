@@ -340,6 +340,18 @@ FILE* gta2_fopen(const char* path, const char* mode)
 {
     const std::string norm = NormalisePath(path);
     FILE* f = fopen(norm.c_str(), mode);
+    if (!f && (strchr(mode, 'w') || strchr(mode, 'a') || strchr(mode, '+')))
+    {
+        size_t slash = norm.find_last_of('/');
+        if (slash != std::string::npos)
+        {
+            std::string dir = norm.substr(0, slash);
+            char cmd[256];
+            snprintf(cmd, sizeof(cmd), "mkdir -p \"%s\"", dir.c_str());
+            system(cmd);
+            f = fopen(norm.c_str(), mode);
+        }
+    }
     if (!f)
     {
         fprintf(stderr, "fopen(\"%s\" -> \"%s\", \"%s\"): %s\n", path, norm.c_str(), mode, strerror(errno));

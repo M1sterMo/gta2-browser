@@ -13,3 +13,5 @@ build/
 # Generated game packs, captures, converted media and dumps (never committed)
 *.gta2pack
 *.gta2save
+__pycache__/
+*.pyc

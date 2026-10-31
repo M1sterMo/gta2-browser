@@ -9,6 +9,24 @@
 #pragma once
 #define __NT__ 1 /* selects the Win32 branch of 3rdParty/mss.h only */
 
+#define __declspec(x)
+#ifndef __cdecl
+#define __cdecl
+#endif
+#ifndef __stdcall
+#define __stdcall
+#endif
+#define __fastcall
+#define __thiscall
+#ifndef __forceinline
+#define __forceinline inline __attribute__((always_inline))
+#endif
+#define __int8 char
+#define __int16 short
+#define __int32 int
+typedef long long __int64;
+typedef unsigned long long __uint64;
+
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -22,6 +40,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <cwchar>
+#include <string>
+#include <algorithm>
+#include <vector>
 #endif
 
 #ifdef __cplusplus
@@ -65,4 +86,3 @@ int _stat(const char* path, struct _stat* st);
 #define _stricmp strcasecmp
 #define fopen gta2_fopen
 #define fclose gta2_fclose
-#define remove gta2_remove
