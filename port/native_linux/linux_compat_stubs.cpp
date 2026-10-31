@@ -5,12 +5,29 @@
 #include "Network_20324.hpp"
 #include "ImGuiDebug.hpp"
 
+#include <stdio.h>
+
 extern "C" {
 
 void gta2_js_file_written(const char*) {}
 void gta2_js_file_removed(const char*) {}
 void gta2_js_net_send(int, const void*, int) {}
-void gta2_js_open_options() {}
+void gta2_js_open_options() {
+    printf("\n================ [GTA 2 CONTROLS & SHORTCUTS] ================\n");
+    printf(" Movement:        W, A, S, D  or  Arrow Keys\n");
+    printf(" Enter Vehicle:   Enter  or  F\n");
+    printf(" Attack/Shoot:    Left Ctrl  or  L\n");
+    printf(" Jump/Handbrake:  Spacebar\n");
+    printf(" Weapons:         Z / X  or  Q / E  or  J / K\n");
+    printf(" Horn:            Tab  or  H\n");
+    printf(" Graphics Filter: [F8] Toggle Smooth (Bilinear) / Retro (Pixelated)\n");
+    printf(" View Distance:   [-] Zoom Out  /  [=] Zoom In\n");
+    printf(" Camera Mode:     [F7] Toggle Modern Smooth / Classic 1999\n");
+    printf(" Map / Waypoints: [M]\n");
+    printf(" Instant Quit:    [Alt+F4] or [Ctrl+Q]\n");
+    printf(" In-Game Quit:    Press [Esc], then [Enter] twice to confirm\n");
+    printf("==============================================================\n\n");
+}
 
 LPSTR WINAPI lstrcatA(LPSTR lpString1, LPCSTR lpString2) {
     return strcat(lpString1, lpString2);

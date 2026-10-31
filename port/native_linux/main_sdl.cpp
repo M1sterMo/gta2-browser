@@ -40,7 +40,7 @@ struct KeyMap {
 
 KeyMap GetKeyMapping(SDL_Scancode sc) {
     switch (sc) {
-        case SDL_SCANCODE_ESCAPE: return {0x01, 0x1B};
+        case SDL_SCANCODE_ESCAPE: return {0x01, 0x1B}; // DIK_ESCAPE
         case SDL_SCANCODE_1: return {0x02, '1'};
         case SDL_SCANCODE_2: return {0x03, '2'};
         case SDL_SCANCODE_3: return {0x04, '3'};
@@ -54,39 +54,67 @@ KeyMap GetKeyMapping(SDL_Scancode sc) {
         case SDL_SCANCODE_MINUS: return {0x0C, 0xBD};
         case SDL_SCANCODE_EQUALS: return {0x0D, 0xBB};
         case SDL_SCANCODE_BACKSPACE: return {0x0E, 0x08};
-        case SDL_SCANCODE_TAB: return {0x0F, 0x09};
-        case SDL_SCANCODE_Q: return {0x10, 'Q'};
-        case SDL_SCANCODE_W: return {0x11, 'W'};
-        case SDL_SCANCODE_E: return {0x12, 'E'};
-        case SDL_SCANCODE_R: return {0x13, 'R'};
-        case SDL_SCANCODE_T: return {0x14, 'T'};
-        case SDL_SCANCODE_Y: return {0x15, 'Y'};
-        case SDL_SCANCODE_U: return {0x16, 'U'};
-        case SDL_SCANCODE_I: return {0x17, 'I'};
-        case SDL_SCANCODE_O: return {0x18, 'O'};
-        case SDL_SCANCODE_P: return {0x19, 'P'};
-        case SDL_SCANCODE_RETURN: return {0x1C, 0x0D};
-        case SDL_SCANCODE_LCTRL: return {0x1D, 0x11};
-        case SDL_SCANCODE_A: return {0x1E, 'A'};
-        case SDL_SCANCODE_S: return {0x1F, 'S'};
-        case SDL_SCANCODE_D: return {0x20, 'D'};
-        case SDL_SCANCODE_F: return {0x21, 'F'};
-        case SDL_SCANCODE_G: return {0x22, 'G'};
-        case SDL_SCANCODE_H: return {0x23, 'H'};
-        case SDL_SCANCODE_J: return {0x24, 'J'};
-        case SDL_SCANCODE_K: return {0x25, 'K'};
-        case SDL_SCANCODE_L: return {0x26, 'L'};
-        case SDL_SCANCODE_LSHIFT: return {0x2A, 0x10};
-        case SDL_SCANCODE_Z: return {0x2C, 'Z'};
-        case SDL_SCANCODE_X: return {0x2D, 'X'};
+        case SDL_SCANCODE_TAB: return {0x0F, 0x09}; // DIK_TAB (Horn)
+        
+        // Enter Vehicle / Menu Select: Return, Keypad Enter, or F
+        case SDL_SCANCODE_RETURN:
+        case SDL_SCANCODE_KP_ENTER:
+        case SDL_SCANCODE_F: return {0x1C, 0x0D}; // DIK_RETURN
+        
+        // Jump / Handbrake
+        case SDL_SCANCODE_SPACE: return {0x39, 0x20}; // DIK_SPACE
+
+        // Directional controls: Both Arrow Keys and WASD map to DIK_UP/DOWN/LEFT/RIGHT
+        case SDL_SCANCODE_UP:
+        case SDL_SCANCODE_W: return {0xC8, 0x26}; // DIK_UP (Forward / Menu Up)
+        
+        case SDL_SCANCODE_DOWN:
+        case SDL_SCANCODE_S: return {0xD0, 0x28}; // DIK_DOWN (Back / Menu Down)
+        
+        case SDL_SCANCODE_LEFT:
+        case SDL_SCANCODE_A: return {0xCB, 0x25}; // DIK_LEFT (Turn Left / Menu Left)
+        
+        case SDL_SCANCODE_RIGHT:
+        case SDL_SCANCODE_D: return {0xCD, 0x27}; // DIK_RIGHT (Turn Right / Menu Right)
+
+        // Attack / Punch / Shoot: Left Ctrl, Right Ctrl, or L
+        case SDL_SCANCODE_LCTRL:
+        case SDL_SCANCODE_RCTRL:
+        case SDL_SCANCODE_L: return {0x1D, 0x11}; // DIK_LCONTROL
+
+        // Weapons
+        case SDL_SCANCODE_Z:
+        case SDL_SCANCODE_J:
+        case SDL_SCANCODE_Q: return {0x2C, 'Z'}; // DIK_Z (Prev Weapon)
+        case SDL_SCANCODE_X:
+        case SDL_SCANCODE_K:
+        case SDL_SCANCODE_E: return {0x2D, 'X'}; // DIK_X (Next Weapon)
+
+        // Horn / Special 1
+        case SDL_SCANCODE_H:
+        case SDL_SCANCODE_I: return {0x0F, 0x09}; // DIK_TAB
+
+        // Special 2 (Car Extras)
+        case SDL_SCANCODE_LALT:
+        case SDL_SCANCODE_RALT:
+        case SDL_SCANCODE_O: return {0x38, 0x12}; // DIK_LMENU
+
+        // Status
+        case SDL_SCANCODE_LSHIFT:
+        case SDL_SCANCODE_RSHIFT:
+        case SDL_SCANCODE_P: return {0x36, 0x10}; // DIK_RSHIFT
+
+        case SDL_SCANCODE_M: return {0x32, 'M'};
         case SDL_SCANCODE_C: return {0x2E, 'C'};
         case SDL_SCANCODE_V: return {0x2F, 'V'};
         case SDL_SCANCODE_B: return {0x30, 'B'};
         case SDL_SCANCODE_N: return {0x31, 'N'};
-        case SDL_SCANCODE_M: return {0x32, 'M'};
-        case SDL_SCANCODE_RSHIFT: return {0x36, 0x10};
-        case SDL_SCANCODE_LALT: return {0x38, 0x12};
-        case SDL_SCANCODE_SPACE: return {0x39, 0x20};
+        case SDL_SCANCODE_R: return {0x13, 'R'};
+        case SDL_SCANCODE_T: return {0x14, 'T'};
+        case SDL_SCANCODE_Y: return {0x15, 'Y'};
+        case SDL_SCANCODE_U: return {0x16, 'U'};
+        case SDL_SCANCODE_G: return {0x22, 'G'};
+
         case SDL_SCANCODE_F1: return {0x3B, 0x70};
         case SDL_SCANCODE_F2: return {0x3C, 0x71};
         case SDL_SCANCODE_F3: return {0x3D, 0x72};
@@ -99,46 +127,52 @@ KeyMap GetKeyMapping(SDL_Scancode sc) {
         case SDL_SCANCODE_F10: return {0x44, 0x79};
         case SDL_SCANCODE_F11: return {0x57, 0x7A};
         case SDL_SCANCODE_F12: return {0x58, 0x7B};
-        case SDL_SCANCODE_RCTRL: return {0x9D, 0x11};
-        case SDL_SCANCODE_RALT: return {0xB8, 0x12};
-        case SDL_SCANCODE_UP: return {0xC8, 0x26};
-        case SDL_SCANCODE_LEFT: return {0xCB, 0x25};
-        case SDL_SCANCODE_RIGHT: return {0xCD, 0x27};
-        case SDL_SCANCODE_DOWN: return {0xD0, 0x28};
         default: return {0, 0};
     }
 }
 
 void SeedRegistry() {
-    const char* REG_ROOT = "hkcu\\software\\dma design ltd\\gta2";
-    gta2_port_reg_set_dword("hkcu\\software\\dma design ltd\\gta2\\screen", "start_mode", 0);
-    gta2_port_reg_set_dword("hkcu\\software\\dma design ltd\\gta2\\screen", "do_play_movie", 0);
-    gta2_port_reg_set_dword("hklm\\software\\freeloader.com\\gta2", "cityinstalled", 2);
-    gta2_port_reg_set_string("hkcu\\software\\dma design ltd\\gta2\\option", "language", "e");
-
-    // Controls: Forward, Back, Left, Right, Attack, Enter Vehicle, Jump, Prev Wpn, Next Wpn, Special1, Special2, Status
-    int controls[12] = {
-        0x11, // 0 forward: W
-        0x1F, // 1 back: S
-        0x1E, // 2 left: A
-        0x20, // 3 right: D
-        0x26, // 4 attack: L
-        0x1C, // 5 enter vehicle: Enter
-        0x39, // 6 jump/handbrake: Space
-        0x24, // 7 prev weapon: J
-        0x25, // 8 next weapon: K
-        0x17, // 9 special 1: I
-        0x18, // 10 special 2: O
-        0x19  // 11 status: P
+    const char* roots[] = {
+        "hklm\\software\\dma design ltd\\gta2",
+        "hkcu\\software\\dma design ltd\\gta2"
     };
 
-    for (int i = 0; i < 12; ++i) {
-        char keyBuf[16];
-        snprintf(keyBuf, sizeof(keyBuf), "%d", i);
+    // Standard DirectInput scan code bindings
+    int controls[12] = {
+        0xC8, // 0 forward: DIK_UP (Arrow Up or W)
+        0xD0, // 1 back: DIK_DOWN (Arrow Down or S)
+        0xCB, // 2 left: DIK_LEFT (Arrow Left or A)
+        0xCD, // 3 right: DIK_RIGHT (Arrow Right or D)
+        0x1D, // 4 attack: DIK_LCONTROL (LCtrl, RCtrl or L)
+        0x1C, // 5 enter vehicle: DIK_RETURN (Enter or F)
+        0x39, // 6 jump/handbrake: DIK_SPACE (Space)
+        0x2C, // 7 prev weapon: DIK_Z (Z, J, or Q)
+        0x2D, // 8 next weapon: DIK_X (X, K, or E)
+        0x0F, // 9 special 1: DIK_TAB (Tab or H)
+        0x38, // 10 special 2: DIK_LMENU (Alt or O)
+        0x36  // 11 status: DIK_RSHIFT (Shift or P)
+    };
+
+    for (const char* regRoot : roots) {
         char pathBuf[128];
-        snprintf(pathBuf, sizeof(pathBuf), "%s\\control", REG_ROOT);
-        gta2_port_reg_set_dword(pathBuf, keyBuf, controls[i]);
+        snprintf(pathBuf, sizeof(pathBuf), "%s\\screen", regRoot);
+        gta2_port_reg_set_dword(pathBuf, "start_mode", 0);
+        gta2_port_reg_set_dword(pathBuf, "do_play_movie", 0);
+
+        snprintf(pathBuf, sizeof(pathBuf), "%s\\option", regRoot);
+        gta2_port_reg_set_string(pathBuf, "language", "e");
+
+        snprintf(pathBuf, sizeof(pathBuf), "%s\\debug", regRoot);
+        gta2_port_reg_set_dword(pathBuf, "skip_trains", 0);
+
+        for (int i = 0; i < 12; ++i) {
+            char keyBuf[16];
+            snprintf(keyBuf, sizeof(keyBuf), "%d", i);
+            snprintf(pathBuf, sizeof(pathBuf), "%s\\control", regRoot);
+            gta2_port_reg_set_dword(pathBuf, keyBuf, controls[i]);
+        }
     }
+    gta2_port_reg_set_dword("hklm\\software\\freeloader.com\\gta2", "cityinstalled", 2);
 }
 
 extern "C" void Gta2Audio_Init();
@@ -229,6 +263,15 @@ int main(int argc, char** argv) {
                 running = false;
                 break;
             }
+            if (ev.type == SDL_KEYDOWN) {
+                // Instant hotkey quit from anywhere: Alt+F4 or Ctrl+Q
+                if ((ev.key.keysym.sym == SDLK_F4 && (SDL_GetModState() & KMOD_ALT)) ||
+                    (ev.key.keysym.sym == SDLK_q && (SDL_GetModState() & KMOD_CTRL))) {
+                    running = false;
+                    break;
+                }
+            }
+
             if (ev.type == SDL_KEYDOWN || ev.type == SDL_KEYUP) {
                 // Ignore OS auto-repeat events so controls remain crisp and responsive with zero sticking!
                 if (ev.key.repeat) {
@@ -242,6 +285,12 @@ int main(int argc, char** argv) {
                     if (ev.key.keysym.scancode == SDL_SCANCODE_F8) {
                         bool smooth = ToggleTextureFilter();
                         printf("[Graphics] Texture filter: %s\n", smooth ? "Smooth (Bilinear)" : "Retro (Pixelated / Nearest)");
+                        continue;
+                    }
+                    if (ev.key.keysym.scancode == SDL_SCANCODE_F7) {
+                        gCameraMode = !gCameraMode;
+                        gta2_port_set_camera(gCameraMode, gCameraHeightBias);
+                        printf("[Camera] Mode: %s\n", gCameraMode ? "Modern Smoothed" : "Classic 1999");
                         continue;
                     }
                     if (ev.key.keysym.scancode == SDL_SCANCODE_EQUALS) {
@@ -260,19 +309,9 @@ int main(int argc, char** argv) {
 
                 KeyMap km = GetKeyMapping(ev.key.keysym.scancode);
                 char ch = (ev.key.keysym.sym < 128) ? (char)ev.key.keysym.sym : 0;
-                
-                int di_scan = km.di_scan;
-                int vk = km.vk;
 
-                // Also route Arrow Keys and Right Ctrl to match default controls without double-posting
-                if (ev.key.keysym.scancode == SDL_SCANCODE_UP) { di_scan = 0x11; vk = 'W'; }
-                else if (ev.key.keysym.scancode == SDL_SCANCODE_DOWN) { di_scan = 0x1F; vk = 'S'; }
-                else if (ev.key.keysym.scancode == SDL_SCANCODE_LEFT) { di_scan = 0x1E; vk = 'A'; }
-                else if (ev.key.keysym.scancode == SDL_SCANCODE_RIGHT) { di_scan = 0x20; vk = 'D'; }
-                else if (ev.key.keysym.scancode == SDL_SCANCODE_RCTRL) { di_scan = 0x26; vk = 'L'; }
-
-                if (di_scan != 0) {
-                    gta2_port_key(di_scan, vk, down, ch);
+                if (km.di_scan != 0) {
+                    gta2_port_key(km.di_scan, km.vk, down, ch);
                 }
             } else if (ev.type == SDL_MOUSEMOTION) {
                 gta2_port_mouse_move(ev.motion.xrel, ev.motion.yrel);
