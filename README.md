@@ -2,8 +2,14 @@
 
 **Grand Theft Auto 2 (1999), the real game, running 100% natively on Linux (64-bit ELF, Zero Wine) and in modern Web Browsers.**
 
-* **Native Linux Desktop**: Native 64-bit ELF binary running directly on Linux with **SDL2**, **OpenGL 3.3 Core Profile**, and native **ALSA / PulseAudio / PipeWire** audio mixing. No Wine, no Proton, no Windows DLLs.
+* **Native Linux Desktop**: Authentic 64-bit ELF binary running directly on Linux with **SDL2**, **OpenGL 3.3 Core Profile**, and native **ALSA / PulseAudio / PipeWire** audio mixing. No Wine, no Proton, no Windows DLLs.
 * **Web Browser Version**: WebAssembly build via Emscripten with WebGL2 and Web Audio.
+
+> [!IMPORTANT]
+> ### 🎮 CALL FOR TEST PLAYERS (ASAP!)
+> **Single player is fully playable — go ahead and play, test, and report any bugs!**
+> Please note that **multiplayer has NOT been tested at all** yet. We will start small first with test players before any wider multiplayer release.
+> If you find any bugs, crashes, or quirks in single player (or want to volunteer to test multiplayer as we begin testing it), please open an issue or reach out!
 
 ---
 
@@ -11,7 +17,9 @@
 
 ### Features
 * **Zero Wine / Zero Emulation**: Authentic 64-bit Linux ELF binary (`gta2_linux`).
-* **Hardware Accelerated Graphics**: Modern OpenGL 3.3 Core Profile renderer.
+* **16:9 Widescreen & Modern Camera**: Default panoramic 16:9 720p HD with smoothed camera (no jerky zoom pumping) and dynamically adjustable view distance (`-` and `=`).
+* **Smooth Graphics / Filter Toggle**: Hardware-accelerated OpenGL 3.3 renderer with **Smooth Bilinear Filtering** by default and instant retro toggle (`[F8]` switches between Smooth and Crisp Pixelated).
+* **Responsive Zero-Lag Input**: Direct physical key-state mapping for driving and walking with zero key-sticking or queue lag.
 * **Native Audio Engine**: Real-time SDL2 multi-channel audio mixer supporting sound bank SFX (`.sdt`/`.raw`) and speech/radio streams (`.wav`).
 * **64-bit Architecture Ready**: Custom `ScrPtr` handle layer preserving 32-bit binary level script layout while executing with 64-bit pointers.
 * **Window Management**: Fullscreen or resizable window, keyboard, and controller input via SDL2.
@@ -28,7 +36,23 @@
 3. Run with your GTA 2 data files:
    ```bash
    ./build/linux_native/gta2_linux /path/to/gta2/data
+   # Or using the launcher script:
+   ./run_gta2.sh
    ```
+
+### In-Game Linux Desktop Shortcuts
+| Key | Action |
+|---|---|
+| `W`, `A`, `S`, `D` or Arrows | Walk / Drive (hold down continuously to move) |
+| `Enter` | Enter / Exit Vehicle |
+| `Space` | Jump / Handbrake |
+| `L` or `Right Ctrl` | Punch / Attack / Shoot |
+| `J` / `K` | Previous / Next weapon |
+| `I` / `O` | Special (Horn / Car extras) |
+| `M` | Map and waypoints |
+| `F8` | **Toggle Graphics Filter** (Smooth Bilinear ⇄ Retro Pixelated) |
+| `−` / `=` | **Adjust View Distance** (Zoom Out / Zoom In) |
+| `F7` | Toggle Camera Mode (Modern Smooth ⇄ Classic 1999) |
 
 ---
 

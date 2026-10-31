@@ -146,7 +146,24 @@ bool InitNativeRenderer(SDL_Window* window) {
 
 // ---------------------------------------------------------------------------
 // GBH Texture API (called from gbh_web.cpp)
+static bool gSmoothFiltering = true; // Default to smooth bilinear filtering
+
 extern "C" {
+
+bool ToggleTextureFilter() {
+    gSmoothFiltering = !gSmoothFiltering;
+    GLint filter = gSmoothFiltering ? GL_LINEAR : GL_NEAREST;
+    for (auto& pair : gTextures) {
+        glBindTexture(GL_TEXTURE_2D, pair.second);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
+    }
+    return gSmoothFiltering;
+}
+
+bool IsSmoothFilterEnabled() {
+    return gSmoothFiltering;
+}
 
 void gta2_js_upload_texture(int id, int w, int h, const void* rgba) {
     GLuint tex = 0;
@@ -158,11 +175,12 @@ void gta2_js_upload_texture(int id, int w, int h, const void* rgba) {
         tex = it->second;
     }
 
+    GLint filter = gSmoothFiltering ? GL_LINEAR : GL_NEAREST;
     glBindTexture(GL_TEXTURE_2D, tex);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 }

@@ -25,6 +25,11 @@ void gta2_port_mouse_move(int dx, int dy);
 void gta2_port_mouse_button(int button, int down);
 void gta2_port_release_all_keys();
 void gta2_port_set_view_width(int width);
+void gta2_port_set_camera(int mode, float heightBias);
+void gta2_port_set_hud_edges(int on);
+void gta2_port_set_interpolation(int on);
+bool ToggleTextureFilter();
+bool IsSmoothFilterEnabled();
 }
 
 // Map SDL_Scancode to DirectInput Scan Code and Virtual Key
@@ -162,9 +167,9 @@ int main(int argc, char** argv) {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
-    int winWidth = 1024, winHeight = 768;
+    int winWidth = 1280, winHeight = 720; // 16:9 720p HD
     SDL_Window* window = SDL_CreateWindow(
-        "Grand Theft Auto 2 (Native Linux)",
+        "Grand Theft Auto 2 (Native Linux 16:9)",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         winWidth, winHeight,
         SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
@@ -194,6 +199,19 @@ int main(int argc, char** argv) {
     SeedRegistry();
     Gta2Port_StaticInit();
 
+    // 16:9 Widescreen, Modern Smooth Camera, and Motion Interpolation setup
+    int initialViewW = (int)std::round(480.0f * (1280.0f / 720.0f));
+    if (initialViewW < 640) initialViewW = 640;
+    if (initialViewW > 1280) initialViewW = 1280;
+    initialViewW &= ~1;
+    gta2_port_set_view_width(initialViewW);
+    gta2_port_set_hud_edges(1);
+    
+    static float gCameraHeightBias = 1.2f;
+    static int gCameraMode = 1; // 1 = Modern, 0 = Classic
+    gta2_port_set_camera(gCameraMode, gCameraHeightBias);
+    gta2_port_set_interpolation(1);
+
     char cmd[256] = "";
     int r = WinMain_5E53F0(reinterpret_cast<HINSTANCE>(0x400000), nullptr, cmd, SW_SHOWNORMAL);
     if (r != 0x7FFFFFFF) {
@@ -201,7 +219,7 @@ int main(int argc, char** argv) {
         return r;
     }
 
-    printf("GTA 2 initialized! Entering native Linux game loop...\n");
+    printf("GTA 2 initialized! Entering native Linux game loop (16:9 Widescreen, Smooth Graphics)...\n");
 
     bool running = true;
     while (running) {
@@ -212,18 +230,50 @@ int main(int argc, char** argv) {
                 break;
             }
             if (ev.type == SDL_KEYDOWN || ev.type == SDL_KEYUP) {
+                // Ignore OS auto-repeat events so controls remain crisp and responsive with zero sticking!
+                if (ev.key.repeat) {
+                    continue;
+                }
+
                 int down = (ev.type == SDL_KEYDOWN) ? 1 : 0;
+
+                // Hotkeys (only on press)
+                if (down) {
+                    if (ev.key.keysym.scancode == SDL_SCANCODE_F8) {
+                        bool smooth = ToggleTextureFilter();
+                        printf("[Graphics] Texture filter: %s\n", smooth ? "Smooth (Bilinear)" : "Retro (Pixelated / Nearest)");
+                        continue;
+                    }
+                    if (ev.key.keysym.scancode == SDL_SCANCODE_EQUALS) {
+                        gCameraHeightBias = std::max(gCameraHeightBias - 0.5f, -0.6f);
+                        gta2_port_set_camera(gCameraMode, gCameraHeightBias);
+                        printf("[Camera] Zoom in (height bias: %.1f)\n", gCameraHeightBias);
+                        continue;
+                    }
+                    if (ev.key.keysym.scancode == SDL_SCANCODE_MINUS) {
+                        gCameraHeightBias = std::min(gCameraHeightBias + 0.5f, 3.6f);
+                        gta2_port_set_camera(gCameraMode, gCameraHeightBias);
+                        printf("[Camera] Zoom out (height bias: %.1f)\n", gCameraHeightBias);
+                        continue;
+                    }
+                }
+
                 KeyMap km = GetKeyMapping(ev.key.keysym.scancode);
                 char ch = (ev.key.keysym.sym < 128) ? (char)ev.key.keysym.sym : 0;
-                if (km.di_scan != 0) {
-                    gta2_port_key(km.di_scan, km.vk, down, ch);
+                
+                int di_scan = km.di_scan;
+                int vk = km.vk;
+
+                // Also route Arrow Keys and Right Ctrl to match default controls without double-posting
+                if (ev.key.keysym.scancode == SDL_SCANCODE_UP) { di_scan = 0x11; vk = 'W'; }
+                else if (ev.key.keysym.scancode == SDL_SCANCODE_DOWN) { di_scan = 0x1F; vk = 'S'; }
+                else if (ev.key.keysym.scancode == SDL_SCANCODE_LEFT) { di_scan = 0x1E; vk = 'A'; }
+                else if (ev.key.keysym.scancode == SDL_SCANCODE_RIGHT) { di_scan = 0x20; vk = 'D'; }
+                else if (ev.key.keysym.scancode == SDL_SCANCODE_RCTRL) { di_scan = 0x26; vk = 'L'; }
+
+                if (di_scan != 0) {
+                    gta2_port_key(di_scan, vk, down, ch);
                 }
-                // Arrow keys as alternative to WASD
-                if (ev.key.keysym.scancode == SDL_SCANCODE_UP) gta2_port_key(0x11, 'W', down, 0);
-                if (ev.key.keysym.scancode == SDL_SCANCODE_DOWN) gta2_port_key(0x1F, 'S', down, 0);
-                if (ev.key.keysym.scancode == SDL_SCANCODE_LEFT) gta2_port_key(0x1E, 'A', down, 0);
-                if (ev.key.keysym.scancode == SDL_SCANCODE_RIGHT) gta2_port_key(0x20, 'D', down, 0);
-                if (ev.key.keysym.scancode == SDL_SCANCODE_RCTRL) gta2_port_key(0x26, 'L', down, 0);
             } else if (ev.type == SDL_MOUSEMOTION) {
                 gta2_port_mouse_move(ev.motion.xrel, ev.motion.yrel);
             } else if (ev.type == SDL_MOUSEBUTTONDOWN || ev.type == SDL_MOUSEBUTTONUP) {
@@ -234,11 +284,14 @@ int main(int argc, char** argv) {
                 gta2_port_mouse_button(btn, down);
             } else if (ev.type == SDL_WINDOWEVENT) {
                 if (ev.window.event == SDL_WINDOWEVENT_RESIZED) {
-                    // Update view width if aspect ratio changed
+                    // Update view width dynamically when user resizes window
                     int w = ev.window.data1;
                     int h = ev.window.data2;
                     if (h > 0) {
-                        int viewW = (int)(480.0f * (float)w / (float)h);
+                        int viewW = (int)std::round(480.0f * (float)w / (float)h);
+                        if (viewW < 640) viewW = 640;
+                        if (viewW > 1280) viewW = 1280;
+                        viewW &= ~1;
                         gta2_port_set_view_width(viewW);
                     }
                 }
