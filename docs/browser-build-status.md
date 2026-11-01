@@ -522,7 +522,8 @@ game's time limit stops at 60 minutes.
   - `scripts/deploy_server.sh` archives the server's live build before replacing it.
   - `scripts/build_pages.py` keeps the public site's live build and publishes every archived build, in static mode and without `img/`.
   - Church saves (the game's own) work in every version.
-  - **Rule:** before changing the game's code, say so, so the owner can church-save first.
+  - **Rule:** the saves rule in `docs/CONTRIBUTING.md`: any change to the game must leave players a way to keep playing the games they have. Before changing the game's code, say so, so the owner can church-save first.
+  - **Safeguards:** the deploy adds to the server's `old/` and never deletes from it. It checks the archived copy's fingerprint before replacing the live build. The Pages build keeps whatever the site already publishes under `old/`, even if the local archive lost it. `build_port.py` keeps each replaced local build in `old-local/` (not published), and the dev server looks there too.
   - **History.** The build live from 15 to 21 October (`ed020b235c9c718f332c2028`) was replaced without being archived. It was rebuilt byte for byte from commit `244f8cc` and archived on 23 October.
 - **Card details.** The picture is a 320-pixel JPEG of the game canvas (it keeps its last frame), taken before the Saves screen covers the game. The label comes from `gta2_port_savestate_label`: the area name the game shows on screen, the map file (giving the district), cash, lives, multiplier, wanted stars and health. It's read after the memory copy, because finding the area moves the map's zone cursor.
 - **Paused saves.** A save made behind the Saves screen holds the paused flag, so a load always unpauses.

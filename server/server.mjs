@@ -227,6 +227,9 @@ function relay(ws) {
   const others = () => [...(rooms.get(room) || new Map())].filter(([peer]) => peer !== id);
   const target = (to) => (to ? others().filter(([peer]) => peer === to) : others());
 
+  // A bad frame (too large, or against the protocol) closes this connection; with no listener the
+  // error would end the whole server. 'close' follows and tidies up the room.
+  ws.on('error', () => {});
   ws.on('message', (data, isBinary) => {
     if (isBinary) {
       if (!room || data.length < 1) return;
@@ -240,6 +243,7 @@ function relay(ws) {
     }
     let m;
     try { m = JSON.parse(data.toString()); } catch { return; }
+    if (!m || typeof m !== 'object') return; // valid JSON, but not a message (null would throw below)
     if (m.t === 'join' && !room && typeof m.room === 'string' && typeof m.id === 'string' && m.id.length < 64) {
       const members = rooms.get(m.room) || new Map();
       if (members.size >= MAX_ROOM) return ws.send(JSON.stringify({ t: 'full' }));

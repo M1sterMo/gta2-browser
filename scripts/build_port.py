@@ -13,6 +13,7 @@ links build/port/<preset>/gta2.{js,wasm} and copies the web shell from web/.
 """
 import argparse
 import concurrent.futures
+import hashlib
 import os
 import re
 import shutil
@@ -135,6 +136,22 @@ def compile_one(args):
     return src, r.returncode, r.stderr
 
 
+def keep_previous_build(out):
+    """Before a rebuild: a copy of this build in old-local/<build>/, as saves made with it need it.
+
+    The Saves screen opens old/<build>/ for a save of another build; the local server also looks
+    in old-local/. It is not published: only builds that went live belong in old/.
+    """
+    wasm = out / 'gta2.wasm'
+    if not wasm.exists():
+        return
+    build = hashlib.sha256(wasm.read_bytes()).hexdigest()[:24]
+    if (out / 'old' / build / 'gta2.wasm').exists() or (out / 'old-local' / build / 'gta2.wasm').exists():
+        return
+    skip = {'obj', 'objects.rsp', 'dev', 'old', 'old-local'}
+    shutil.copytree(out, out / 'old-local' / build, ignore=lambda _, names: [n for n in names if n in skip])
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description='Build the GTA2 browser port.')
     ap.add_argument('--preset', required=True, choices=PRESETS)
@@ -146,6 +163,7 @@ def main(argv=None):
     make_case_aliases()
 
     out = ROOT / 'build/port' / a.preset
+    keep_previous_build(out)
     jobs = []
     for rel in (ROOT / 'port/core/sources.txt').read_text().split():
         jobs.append((CORE / rel, out / 'obj/game' / (Path(rel).stem + '.o'), COMMON + OPT[a.preset] + GAME_ONLY))

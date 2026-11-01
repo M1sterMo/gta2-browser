@@ -98,6 +98,10 @@ def keep_live_build():
     Saves-screen saves only load in the build that made them, and the Saves screen opens
     old/<build>/ for them ("Open in its version"), so a published build is never dropped.
     """
+    for build in sorted((SITE / 'old').iterdir()) if (SITE / 'old').is_dir() else ():
+        # what the site already publishes stays, even if this computer's archive lost it
+        if not (ARCHIVE / build.name / 'gta2.wasm').exists():
+            shutil.copytree(build, ARCHIVE / build.name, ignore=shutil.ignore_patterns('config.json'), dirs_exist_ok=True)
     live = SITE / 'gta2.wasm'
     if not live.exists() or build_id(live) == build_id(RELEASE / 'gta2.wasm'):
         return

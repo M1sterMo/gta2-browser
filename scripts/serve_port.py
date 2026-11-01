@@ -42,7 +42,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if self.game_dir in target.parents:
                 return str(target)
             return str(self.game_dir / '__denied__')
-        return super().translate_path(path)
+        target = super().translate_path(path)
+        if clean.startswith('/old/') and not os.path.exists(target):
+            return super().translate_path(path.replace('/old/', '/old-local/', 1))  # build_port.py kept it
+        return target
 
     def end_headers(self):
         self.send_header('Cache-Control', 'no-store')

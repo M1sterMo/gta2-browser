@@ -40,10 +40,19 @@ if [ -n "$live_build" ] && [ "$live_build" != "$new_build" ] && [ ! -f "build/po
   mkdir -p "build/port/release/old/$live_build"
   rsync -a --exclude old --exclude obj --exclude dev --exclude objects.rsp \
     "$target:/opt/gta2/data/web/" "build/port/release/old/$live_build/"
+  if [ "$(shasum -a 256 "build/port/release/old/$live_build/gta2.wasm" | cut -c1-24)" != "$live_build" ]; then
+    echo "deploy_server: the archived copy of $live_build does not match; nothing was replaced" >&2
+    exit 1
+  fi
 fi
 
 # readable by the container's user (the installer leaves some folders owner-only)
-rsync -az --delete --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r build/port/release/ "$target:/opt/gta2/data/web/"
+# old/ goes up first, and only ever adds: the server may hold builds this computer no longer has.
+if [ -d build/port/release/old ]; then
+  ssh "$target" 'mkdir -p /opt/gta2/data/web/old'
+  rsync -az --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r build/port/release/old/ "$target:/opt/gta2/data/web/old/"
+fi
+rsync -az --delete --exclude /old/ --exclude /old-local/ --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r build/port/release/ "$target:/opt/gta2/data/web/"
 rsync -az --delete --chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r --exclude '*.exe' --exclude '*.dll' --exclude '*.bik' game/ "$target:/opt/gta2/data/game/"
 rsync -az deploy/compose.yml "$target:/opt/gta2/compose.yml"
 # also here: macOS's own rsync (openrsync) ignores --chmod, and the container must read every file
