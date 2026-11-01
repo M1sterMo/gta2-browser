@@ -1,0 +1,107 @@
+From 2fa6a3e1f01dbe4af1cee1d6a8756003f6da1aa5 Mon Sep 17 00:00:00 2001
+From: oh2fxd <oh2fxd@gmail.com>
+Date: Sun, 1 Nov 2026 01:26:15 +0200
+Subject: [PATCH 3/3] Implement native in-engine Options and Controls menu
+ (Page 12)
+
+---
+ Source/Frontend.cpp | 62 ++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 61 insertions(+), 1 deletion(-)
+
+diff --git a/Source/Frontend.cpp b/Source/Frontend.cpp
+index 6f5094a3..5e7e0fc3 100644
+--- a/Source/Frontend.cpp
++++ b/Source/Frontend.cpp
+@@ -1750,6 +1750,10 @@ void Frontend::UpdateMenuScreen_4B6780()
+         {
+             field_EE08_menu_screen = Credits_17;
+         }
++        else if (field_132_f136_idx == 12)
++        {
++            field_EE08_menu_screen = Options_0;
++        }
+         else
+         {
+             field_EE08_menu_screen = PlayArea1_7;
+@@ -1956,6 +1960,7 @@ void Frontend::UpdatePageFromUserInput_4AE2D0()
+             case MENUPAGE_PARENTAL_CONTROL:
+                 ChangeMenuPage_4B3170(MENUPAGE_CREDITS);
+                 break;
++            case 12: // Page 12: Options & Controls screen returns to Main Menu
+             case MENUPAGE_PLAY:
+             case MENUPAGE_DEAD:
+             case MENUPAGE_AREA_COMPLETE:
+@@ -3550,7 +3555,7 @@ void Frontend::SetupMenuStringsOptionsElements_4B0220()
+     wcsncpy(field_136_menu_pages_array[0].field_4_options_array[1].field_6_option_name_str,
+             gText_0x14_704DFC->Find_5B5F90("options"),
+             0x32u);
+-    field_136_menu_pages_array[0].field_4_options_array[1].field_80_menu_page_target = 257;
++    field_136_menu_pages_array[0].field_4_options_array[1].field_80_menu_page_target = 12;
+     field_136_menu_pages_array[0].field_4_options_array[2].field_0_option_type = STRING_TEXT_1;
+     field_136_menu_pages_array[0].field_4_options_array[2].field_2_x_pos = 300;
+     field_136_menu_pages_array[0].field_4_options_array[2].field_4_y_pos = 290;
+@@ -4102,6 +4107,61 @@ void Frontend::SetupMenuStringsOptionsElements_4B0220()
+     field_136_menu_pages_array[14].field_B8A[0].field_2 = 348; //  TODO: check for wrong var
+     field_136_menu_pages_array[14].field_BC6_current_option_idx = 0;
+     field_136_menu_pages_array[14].field_BC8_default_option_idx = 0;
++
++    // Page 12: In-Game Options & Controls Menu (Native Linux)
++    field_136_menu_pages_array[12].field_0_number_of_options = 1;
++    field_136_menu_pages_array[12].field_2_number_of_elements = 7;
++
++    // Header Title: "OPTIONS"
++    field_136_menu_pages_array[12].field_518_elements_array[0].field_0_element_type = STRING_TEXT_1;
++    field_136_menu_pages_array[12].field_518_elements_array[0].field_4_ypos = 140;
++    wcsncpy(field_136_menu_pages_array[12].field_518_elements_array[0].field_6_element_name_str,
++            gText_0x14_704DFC->Find_5B5F90("options"),
++            0x32u);
++    field_136_menu_pages_array[12].field_518_elements_array[0].field_6A_font_type = field_130;
++    field_136_menu_pages_array[12].field_518_elements_array[0].field_2_xpos =
++        GetCenteredXPos_4B0190(field_136_menu_pages_array[12].field_518_elements_array[0].field_6_element_name_str, field_130, 320);
++    field_136_menu_pages_array[12].field_518_elements_array[0].field_6C_font_palette = 4;
++
++    struct OptLine { const wchar_t* text; s16 y; };
++    OptLine optLines[6] = {
++        { L"MOVE: W A S D  OR  ARROWS", 190 },
++        { L"ENTER CAR: ENTER  OR  F", 215 },
++        { L"ATTACK: LEFT CTRL  OR  L", 240 },
++        { L"JUMP AND BRAKE: SPACE", 265 },
++        { L"GRAPHICS FILTER: F8", 290 },
++        { L"ZOOM: MINUS OR PLUS", 315 }
++    };
++
++    for (s32 i = 0; i < 6; ++i)
++    {
++        field_136_menu_pages_array[12].field_518_elements_array[i + 1].field_0_element_type = STRING_TEXT_1;
++        field_136_menu_pages_array[12].field_518_elements_array[i + 1].field_1_is_it_displayed = 1;
++        field_136_menu_pages_array[12].field_518_elements_array[i + 1].field_4_ypos = optLines[i].y;
++        wcsncpy(field_136_menu_pages_array[12].field_518_elements_array[i + 1].field_6_element_name_str, optLines[i].text, 0x32u);
++        field_136_menu_pages_array[12].field_518_elements_array[i + 1].field_6A_font_type = field_11C_normal_font;
++        field_136_menu_pages_array[12].field_518_elements_array[i + 1].field_2_xpos =
++            GetCenteredXPos_4B0190(field_136_menu_pages_array[12].field_518_elements_array[i + 1].field_6_element_name_str, field_11C_normal_font, 320);
++        field_136_menu_pages_array[12].field_518_elements_array[i + 1].field_6C_font_palette = 0;
++    }
++
++    // Option 0: "MAINMEN" (Return to Main Menu Page 0)
++    field_136_menu_pages_array[12].field_4_options_array[0].field_0_option_type = STRING_TEXT_1;
++    field_136_menu_pages_array[12].field_4_options_array[0].field_1_is_unlocked = 1;
++    field_136_menu_pages_array[12].field_4_options_array[0].field_4_y_pos = 360;
++    wcsncpy(field_136_menu_pages_array[12].field_4_options_array[0].field_6_option_name_str,
++            gText_0x14_704DFC->Find_5B5F90("mainmen"),
++            0x32u);
++    field_136_menu_pages_array[12].field_4_options_array[0].field_6A_font_type = field_11C_normal_font;
++    field_136_menu_pages_array[12].field_4_options_array[0].field_2_x_pos =
++        GetCenteredXPos_4B0190(field_136_menu_pages_array[12].field_4_options_array[0].field_6_option_name_str, field_11C_normal_font, 320);
++    field_136_menu_pages_array[12].field_4_options_array[0].field_80_menu_page_target = 0;
++
++    field_136_menu_pages_array[12].field_B8A[0].field_0 = field_136_menu_pages_array[12].field_4_options_array[0].field_2_x_pos - 20;
++    field_136_menu_pages_array[12].field_B8A[0].field_2 = 368;
++    field_136_menu_pages_array[12].field_B8A[0].field_4_is_option_unlocked = 1;
++    field_136_menu_pages_array[12].field_BC6_current_option_idx = 0;
++    field_136_menu_pages_array[12].field_BC8_default_option_idx = 0;
+     field_EE0E_credits.LoadCredits_483F20();
+ }
+ 
+-- 
+2.43.0
+

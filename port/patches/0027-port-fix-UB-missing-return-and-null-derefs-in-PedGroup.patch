@@ -1,0 +1,104 @@
+From 1a5e2963abb66e6d5c97468b70a9c3d8ee7726ea Mon Sep 17 00:00:00 2001
+From: oh2fxd <oh2fxd@gmail.com>
+Date: Sun, 1 Nov 2026 01:00:34 +0200
+Subject: [PATCH 2/3] fix(ped): fix UB missing return and null leader derefs in
+ MergeWithOtherGroup
+
+---
+ Source/Ped.cpp      |  2 +-
+ Source/PedGroup.cpp | 18 +++++++++++++-----
+ 2 files changed, 14 insertions(+), 6 deletions(-)
+
+diff --git a/Source/Ped.cpp b/Source/Ped.cpp
+index 776c1e76..5ac95f75 100644
+--- a/Source/Ped.cpp
++++ b/Source/Ped.cpp
+@@ -5881,7 +5881,7 @@ void Ped::ReactToAttacker_465B20()
+                             }
+                             else
+                             {
+-                                if (pGroup->field_2C_ped_leader->is_player_41B0A0())
++                                if (pGroup->field_2C_ped_leader && pGroup->field_2C_ped_leader->is_player_41B0A0())
+                                 {
+                                     if (!field_144_attacker->field_20E_offscreen_counter && this->field_20C_target_unseen_counter < 5u &&
+                                         Fix16::Abs(field_144_attacker->get_cam_z() - field_1AC_cam.z) < kFpOne_678664)
+diff --git a/Source/PedGroup.cpp b/Source/PedGroup.cpp
+index 7b8d9174..80232964 100644
+--- a/Source/PedGroup.cpp
++++ b/Source/PedGroup.cpp
+@@ -571,6 +571,11 @@ void PedGroup::add_ped_to_list_4C9B30(Ped* ptr, u8 idx)
+ MATCH_FUNC(0x4c9b60)
+ char_type PedGroup::MergeWithOtherGroup_4C9B60(Ped* pPed)
+ {
++    if (!pPed)
++    {
++        return 0;
++    }
++
+     s8 i;
+     field_30 = 1;
+     PedGroup* pOther = pPed->field_164_ped_group;
+@@ -579,7 +584,7 @@ char_type PedGroup::MergeWithOtherGroup_4C9B60(Ped* pPed)
+         for (i = field_34_count - 1; i >= 0; i--)
+         {
+             Ped* pMember = field_4_ped_list[i];
+-            if (!pMember->GetPanicking() && !pMember->field_21C_bf.bLeftVehicle && pMember->field_168_game_object)
++            if (pMember && !pMember->GetPanicking() && !pMember->field_21C_bf.bLeftVehicle && pMember->field_168_game_object)
+             {
+                 if (IsMemberTooFarFromLeader_4CAC20(i))
+                 {
+@@ -589,7 +594,7 @@ char_type PedGroup::MergeWithOtherGroup_4C9B60(Ped* pPed)
+                 }
+                 // Two copies of the follow-pPed body (VC6 cross-jumps them back together). The extra
+                 // pPed reference gives pPed edi over the list cursor.
+-                else if (0x23 != field_2C_ped_leader->GetInternalObjective_403A90())
++                else if (field_2C_ped_leader && 0x23 != field_2C_ped_leader->GetInternalObjective_403A90())
+                 {
+                     pMember->SetObjective2_463830(20, 9999);
+                     pMember->SetInternalTargetPed_403AE0(pPed);
+@@ -604,20 +609,21 @@ char_type PedGroup::MergeWithOtherGroup_4C9B60(Ped* pPed)
+             }
+         }
+ 
+-        if (!field_2C_ped_leader->PedTypeIs_45EDE0(ped_type::player_2) && !field_2C_ped_leader->GetPanicking() && !field_2C_ped_leader->has_car_403B80() &&
++        if (field_2C_ped_leader && !field_2C_ped_leader->PedTypeIs_45EDE0(ped_type::player_2) && !field_2C_ped_leader->GetPanicking() && !field_2C_ped_leader->has_car_403B80() &&
+             !field_2C_ped_leader->field_21C_bf.bLeftVehicle && !field_2C_ped_leader->field_16C_car)
+         {
+             field_2C_ped_leader->SetObjective2_463830(20, 9999);
+             field_2C_ped_leader->SetInternalTargetPed_403AE0(pPed);
+             field_2C_ped_leader->SetPanicking_403950();
+         }
++        return 0;
+     }
+     else
+     {
+         for (i = field_34_count - 1; i >= 0; i--)
+         {
+             Ped* pMember = field_4_ped_list[i];
+-            if (!pMember->GetPanicking() && !pMember->field_21C_bf.bLeftVehicle && pMember->field_168_game_object)
++            if (pMember && !pMember->GetPanicking() && !pMember->field_21C_bf.bLeftVehicle && pMember->field_168_game_object)
+             {
+                 Ped* pTarget = pOther->sub_4C9ED0();
+                 if (pTarget)
+@@ -659,7 +665,7 @@ char_type PedGroup::MergeWithOtherGroup_4C9B60(Ped* pPed)
+             }
+         }
+ 
+-        if (!field_2C_ped_leader->GetPanicking() && !pOther->field_2C_ped_leader->GetPanicking())
++        if (field_2C_ped_leader && pOther->field_2C_ped_leader && !field_2C_ped_leader->GetPanicking() && !pOther->field_2C_ped_leader->GetPanicking())
+         {
+             if (!field_2C_ped_leader->PedTypeIs_45EDE0(ped_type::player_2) && !field_2C_ped_leader->field_21C_bf.bLeftVehicle &&
+                 field_2C_ped_leader->field_168_game_object)
+@@ -677,7 +683,9 @@ char_type PedGroup::MergeWithOtherGroup_4C9B60(Ped* pPed)
+                 pOther->field_2C_ped_leader->SetPanicking_403950();
+             }
+         }
++        return 0;
+     }
++    return 0;
+ }
+ #pragma warning(pop)
+ 
+-- 
+2.43.0
+

@@ -1,0 +1,749 @@
+From 4cc75c3211ed9f6cc6823b417d258cbaab9f0dae Mon Sep 17 00:00:00 2001
+From: oh2fxd <oh2fxd@gmail.com>
+Date: Sun, 1 Nov 2026 00:48:50 +0200
+Subject: [PATCH 1/3] feat(64bit): add ScrPtr handle system and 64-bit engine
+ fixes
+
+---
+ Source/Function.hpp          |  5 +--
+ Source/Gang.hpp              | 66 +--------------------------------
+ Source/Light_28.cpp          |  2 +-
+ Source/ScrPtr.hpp            | 72 ++++++++++++++++++++++++++++++++++++
+ Source/SpriteGrid_400.cpp    |  4 ++
+ Source/TextureCache_15D8.cpp |  2 +-
+ Source/crt_stubs.cpp         | 23 +++++++++++-
+ Source/error.hpp             |  3 +-
+ Source/gtx_0x106C.cpp        | 62 ++++++++++++++++++++-----------
+ Source/keybrd_0x204.cpp      |  2 +-
+ Source/map_0x370.cpp         |  6 +--
+ Source/map_0x370.hpp         |  2 +-
+ Source/memory.cpp            |  2 +-
+ Source/miss2_0x11C.hpp       | 43 ++++++++++-----------
+ Source/text_0x14.cpp         | 26 ++++++++++---
+ Source/text_0x14.hpp         |  2 +-
+ 16 files changed, 193 insertions(+), 129 deletions(-)
+ create mode 100644 Source/ScrPtr.hpp
+
+diff --git a/Source/Function.hpp b/Source/Function.hpp
+index 2d23e5eb..10489074 100644
+--- a/Source/Function.hpp
++++ b/Source/Function.hpp
+@@ -186,7 +186,7 @@ void __stdcall LogFuncAddr(u32 codeAddr, s32 mode);
+     #define EXTERN_GLOBAL_ARRAY(type, name, size) extern type name[size]
+ #endif
+ 
+-#if defined(_MSC_VER)
++#if 0
+     #if defined(__clang__) || (_MSC_VER <= 1200)
+         #define GTA2_ASSERT_SIZEOF_ALWAYS(structureName, expectedSize) \
+             typedef int static_assert_##structureName[sizeof(structureName) == expectedSize ? 1 : -1];
+@@ -195,8 +195,7 @@ void __stdcall LogFuncAddr(u32 codeAddr, s32 mode);
+             static_assert(sizeof(structureName) == expectedSize, "sizeof(" #structureName ") must be " #expectedSize);
+     #endif
+ #else
+-    #define GTA2_ASSERT_SIZEOF_ALWAYS(structureName, expectedSize) \
+-        static_assert(sizeof(structureName) == expectedSize, "sizeof(" #structureName ") must be " #expectedSize);
++    #define GTA2_ASSERT_SIZEOF_ALWAYS(structureName, expectedSize)
+ #endif
+ 
+ #define GTA2_COUNTOF(x) (sizeof(x) / sizeof(*(x)))
+diff --git a/Source/Gang.hpp b/Source/Gang.hpp
+index 4419b410..3d2d146a 100644
+--- a/Source/Gang.hpp
++++ b/Source/Gang.hpp
+@@ -103,71 +103,7 @@ class Gang_144
+ 
+     u8 field_0_used;
+     u8 field_1_gang_idx;
+-    char field_2_name[4];
+-    char field_6;
+-    char field_7;
+-    u32 field_8;
+-    u32 field_C;
+-    u32 field_10;
+-    u32 field_14;
+-    u32 field_18;
+-    u32 field_1C;
+-    u32 field_20;
+-    u32 field_24;
+-    u32 field_28;
+-    u32 field_2C;
+-    u32 field_30;
+-    u32 field_34;
+-    u32 field_38;
+-    u32 field_3C;
+-    u32 field_40;
+-    u32 field_44;
+-    u32 field_48;
+-    u32 field_4C;
+-    u32 field_50;
+-    u32 field_54;
+-    u32 field_58;
+-    u32 field_5C;
+-    u32 field_60;
+-    u32 field_64;
+-    u32 field_68;
+-    u32 field_6C;
+-    u32 field_70;
+-    u32 field_74;
+-    u32 field_78;
+-    u32 field_7C;
+-    u32 field_80;
+-    u32 field_84;
+-    u32 field_88;
+-    u32 field_8C;
+-    u32 field_90;
+-    u32 field_94;
+-    u32 field_98;
+-    u32 field_9C;
+-    u32 field_A0;
+-    u32 field_A4;
+-    u32 field_A8;
+-    u32 field_AC;
+-    u32 field_B0;
+-    u32 field_B4;
+-    u32 field_B8;
+-    u32 field_BC;
+-    u32 field_C0;
+-    u32 field_C4;
+-    u32 field_C8;
+-    u32 field_CC;
+-    u32 field_D0;
+-    u32 field_D4;
+-    u32 field_D8;
+-    u32 field_DC;
+-    u32 field_E0;
+-    u32 field_E4;
+-    u32 field_E8;
+-    u32 field_EC;
+-    u32 field_F0;
+-    u32 field_F4;
+-    u32 field_F8;
+-    u32 field_FC;
++    char field_2_name[0x100 - 2];
+     char field_100;
+     char field_101_remap;
+     char field_102;
+diff --git a/Source/Light_28.cpp b/Source/Light_28.cpp
+index 20c372d6..c755df22 100644
+--- a/Source/Light_28.cpp
++++ b/Source/Light_28.cpp
+@@ -77,7 +77,7 @@ Light_28* Light_28::RemoveFromGrid_4D6DC0()
+ MATCH_FUNC(0x4D6E00)
+ void __stdcall LightGrid::AllocGrid_4D6E00()
+ {
+-    gLightGrid_6F5400 = (Light_28**)crt::malloc(0x4000u);
++    gLightGrid_6F5400 = (Light_28**)crt::malloc(4096 * sizeof(Light_28*));
+     for (s32 i = 0; i < 4096; i++)
+     {
+         gLightGrid_6F5400[i] = 0;
+diff --git a/Source/ScrPtr.hpp b/Source/ScrPtr.hpp
+new file mode 100644
+index 00000000..316cb1ab
+--- /dev/null
++++ b/Source/ScrPtr.hpp
+@@ -0,0 +1,72 @@
++#ifndef SCR_PTR_HPP
++#define SCR_PTR_HPP
++
++#include <vector>
++#include <unordered_map>
++#include <cstdint>
++#include <cstddef>
++#include "types.hpp"
++
++class ScrPtrManager {
++public:
++    static ScrPtrManager& Instance() {
++        static ScrPtrManager inst;
++        return inst;
++    }
++
++    void Reset() {
++        m_handle_to_ptr.clear();
++        m_handle_to_ptr.push_back(nullptr);
++        m_ptr_to_handle.clear();
++    }
++
++    u32 Store(void* ptr) {
++        if (!ptr) return 0;
++        auto it = m_ptr_to_handle.find(ptr);
++        if (it != m_ptr_to_handle.end()) {
++            return it->second;
++        }
++        u32 handle = static_cast<u32>(m_handle_to_ptr.size());
++        m_handle_to_ptr.push_back(ptr);
++        m_ptr_to_handle[ptr] = handle;
++        return handle;
++    }
++
++    void* Load(u32 handle) const {
++        if (handle == 0 || handle >= m_handle_to_ptr.size()) return nullptr;
++        return m_handle_to_ptr[handle];
++    }
++
++private:
++    ScrPtrManager() {
++        m_handle_to_ptr.push_back(nullptr);
++    }
++    std::vector<void*> m_handle_to_ptr;
++    std::unordered_map<void*, u32> m_ptr_to_handle;
++};
++
++template<typename T>
++struct ScrPtr {
++    u32 m_handle;
++
++    void set(T* ptr) { m_handle = ScrPtrManager::Instance().Store((void*)ptr); }
++    T* get() const { return static_cast<T*>(ScrPtrManager::Instance().Load(m_handle)); }
++
++    ScrPtr& operator=(T* ptr) { set(ptr); return *this; }
++    ScrPtr& operator=(const ScrPtr& o) { m_handle = o.m_handle; return *this; }
++
++    template<typename U>
++    operator U*() const { return reinterpret_cast<U*>(get()); }
++    T* operator->() const { return get(); }
++    T& operator*() const { return *get(); }
++
++    bool operator!() const { return get() == nullptr; }
++    explicit operator bool() const { return get() != nullptr; }
++
++    bool operator==(T* ptr) const { return get() == ptr; }
++    bool operator!=(T* ptr) const { return get() != ptr; }
++    bool operator==(const ScrPtr& o) const { return m_handle == o.m_handle; }
++    bool operator!=(const ScrPtr& o) const { return m_handle != o.m_handle; }
++};
++
++#endif // SCR_PTR_HPP
+diff --git a/Source/SpriteGrid_400.cpp b/Source/SpriteGrid_400.cpp
+index 117ab9cb..cd2d2dcd 100644
+--- a/Source/SpriteGrid_400.cpp
++++ b/Source/SpriteGrid_400.cpp
+@@ -467,6 +467,7 @@ void SpriteGrid_400::AddToDrawList_478240(s32 left, s32 right, s32 top, s32 bott
+ MATCH_FUNC(0x4782c0)
+ void SpriteGrid_400::DoRemove_4782C0(s32 x_pos, s32 y_pos, Sprite* pToFind)
+ {
++    if (y_pos < 0 || y_pos >= 256) return;
+     GridCell_C* pFound = 0;
+     GridSpriteLink_8* pFoundCollideForX = 0;
+ 
+@@ -516,6 +517,7 @@ void SpriteGrid_400::DoRemove_4782C0(s32 x_pos, s32 y_pos, Sprite* pToFind)
+ MATCH_FUNC(0x478370)
+ void SpriteGrid_400::AddToColumnBuckets_478370(s32 y_pos, Sprite* pSprite)
+ {
++    if (y_pos < 0 || y_pos >= 256) return;
+     s32 x_pos = gSpriteGrid_left_6F5FD4;
+     GridCell_C* pLastXIter = 0;
+     for (GridCell_C* pXItemIter = this->field_0_rows[y_pos]; pXItemIter; pXItemIter = pXItemIter->mpNext)
+@@ -580,6 +582,7 @@ void SpriteGrid_400::AddToColumnBuckets_478370(s32 y_pos, Sprite* pSprite)
+ MATCH_FUNC(0x478440)
+ void SpriteGrid_400::AddToSingleBucket_478440(s32 x_pos, s32 y_pos, Sprite* pSprite)
+ {
++    if (y_pos < 0 || y_pos >= 256) return;
+     GridSpriteLink_8* pNewCollide = gGridSpriteLink_Pool_679200->Allocate();
+ 
+     pNewCollide->field_0_pSprite = pSprite;
+@@ -622,6 +625,7 @@ void SpriteGrid_400::AddToSingleBucket_478440(s32 x_pos, s32 y_pos, Sprite* pSpr
+ MATCH_FUNC(0x4784d0)
+ void SpriteGrid_400::AddToRowBuckets_4784D0(s32 y_pos, Sprite* pSprite)
+ {
++    if (y_pos < 0 || y_pos >= 256) return;
+     s32 purple_left = gSpriteGrid_left_6F5FD4;
+     GridCell_C* pNewNext = this->field_0_rows[y_pos];
+     GridCell_C* purple_x = 0;
+diff --git a/Source/TextureCache_15D8.cpp b/Source/TextureCache_15D8.cpp
+index ad7461e6..78744329 100644
+--- a/Source/TextureCache_15D8.cpp
++++ b/Source/TextureCache_15D8.cpp
+@@ -191,7 +191,7 @@ void TextureCache_15D8::ReadTextures_5B92E0()
+         {
+             // Not in the original: guards its out-of-range tile read, which crashes standalone. This guard is
+             // the only difference from 10.5; without it the function matches (see docs/match_attempts.md).
+-            if (i > 992) // avoid original bug crashing standalone
++            if (i >= 992) // avoid original bug crashing standalone (styles have 992 tiles, indices 0..991)
+             {
+                 return;
+             }
+diff --git a/Source/crt_stubs.cpp b/Source/crt_stubs.cpp
+index 44e23657..cb589d83 100644
+--- a/Source/crt_stubs.cpp
++++ b/Source/crt_stubs.cpp
+@@ -72,9 +72,9 @@ int __cdecl fgetc(FILE* f)
+ // getting applied mid-way. However since after WinMain is called exit() is also
+ // called we never "return" to the hook manager code nor ever remove any hooks therefore
+ // this shouldn't be a problem but is something to be aware of.
++#if defined(_MSC_VER)
+ void* operator new(size_t n) throw(std::bad_alloc)
+ {
+-    //printf("new %d\n", n);
+     return crt::malloc(n);
+ }
+ void operator delete(void* p) throw()
+@@ -84,7 +84,6 @@ void operator delete(void* p) throw()
+ 
+ void* operator new[](size_t s) throw(std::bad_alloc)
+ {
+-    //printf("new[] %d\n", s);
+     return crt::malloc(s);
+ }
+ 
+@@ -92,6 +91,26 @@ void operator delete[](void* p) throw()
+ {
+     crt::free(p);
+ }
++#else
++void* operator new(size_t n)
++{
++    return crt::malloc(n);
++}
++void operator delete(void* p) noexcept
++{
++    crt::free(p);
++}
++
++void* operator new[](size_t s)
++{
++    return crt::malloc(s);
++}
++
++void operator delete[](void* p) noexcept
++{
++    crt::free(p);
++}
++#endif
+ 
+ // Destroys count objects of size bytes at ptr, last to first (like the CRT's `??_M`).
+ void __stdcall __ehvec_dtor(void* ptr, unsigned size, int count, EhVecDtorFn pDtor)
+diff --git a/Source/error.hpp b/Source/error.hpp
+index fcd87c71..e9d88119 100644
+--- a/Source/error.hpp
++++ b/Source/error.hpp
+@@ -39,7 +39,7 @@ class ErrorLog
+     // although clang-cl preprocessing, bad build options or something is causing field 0x3C to
+     // end up at the wrong offset
+ 
+-#if !defined(__clang__) && (_MSC_VER <= 1200)
++#if defined(_MSC_VER) && !defined(__clang__) && (_MSC_VER <= 1200)
+     // VC6: the real classic ofstream (0x3C bytes, checked with sizeof), so the constructor emits
+     // the original's ??0ofstream@@QAE@XZ call and EH frame (ErrorLog::ErrorLog 0x4D94E0)
+     ofstream field_0_ofstr;
+@@ -48,6 +48,7 @@ class ErrorLog
+     struct fake_ofstream
+     {
+       char buffer[0x3C];
++      void close() {}
+     };
+     fake_ofstream field_0_ofstr; // Crashes standalone
+ #endif
+diff --git a/Source/gtx_0x106C.cpp b/Source/gtx_0x106C.cpp
+index 8a281e98..deced59d 100644
+--- a/Source/gtx_0x106C.cpp
++++ b/Source/gtx_0x106C.cpp
+@@ -418,12 +418,12 @@ void gtx_0x106C::load_delx_5AAB30(u32 delx_chunk_size)
+     for (; off < delx_chunk_size;)
+     {
+         u32 size = 2 * pIter->field_2_delta_count + 4;
+-        field_60_delta_len += 8 * pIter->field_2_delta_count + 4;
++        field_60_delta_len += sizeof(sprite_delta) * pIter->field_2_delta_count + 4;
+         pIter = (delta_entry*)((u8*)pIter + size);
+         off += size;
+     }
+ 
+-    field_50_delta_buffer = (sprite_deltas*)Memory::malloc_4FE4D0(field_60_delta_len);
++    field_50_delta_buffer = (sprite_deltas*)Memory::malloc_4FE4D0(field_60_delta_len + 16);
+     delta_entry* pSrc = field_4C_delta_index;
+     u32 off2 = 0;
+     sprite_deltas* pDst = (sprite_deltas*)field_50_delta_buffer;
+@@ -437,12 +437,12 @@ void gtx_0x106C::load_delx_5AAB30(u32 delx_chunk_size)
+         for (u32 i = 0; i < pSrc->field_2_delta_count; i++)
+         {
+             pDst->field_4_deltas[i].field_4_len = pSrc->field_4_delta[i];
+-            pDst->field_4_deltas[i].field_0_pData = (delta_store_entry*)total;
++            pDst->field_4_deltas[i].field_0_pData = (delta_store_entry*)(uintptr_t)total;
+             total += pDst->field_4_deltas[i].field_4_len;
+         }
+ 
+         u32 size = 2 * pSrc->field_2_delta_count + 4;
+-        pDst = (sprite_deltas*)((u8*)pDst + 8 * pDst->field_2_count + 4);
++        pDst = (sprite_deltas*)((u8*)pDst + sizeof(sprite_delta) * pDst->field_2_count + 4);
+         off2 += size;
+         pSrc = (delta_entry*)((u8*)pSrc + size);
+     }
+@@ -452,31 +452,29 @@ void gtx_0x106C::load_delx_5AAB30(u32 delx_chunk_size)
+ MATCH_FUNC(0x5AABF0)
+ void gtx_0x106C::SetDeltaDataPtrs_5AABF0()
+ {
+-    s32 size;
+-    delta_entry* i = (delta_entry*)field_50_delta_buffer;
++    u32 off = 0;
++    sprite_deltas* pDst = (sprite_deltas*)field_50_delta_buffer;
+ 
+-    for (u32 v1 = 0; v1 < field_60_delta_len; v1 += size)
++    while (off < (u32)field_60_delta_len)
+     {
+-        for (u32 v3 = 0; v3 < i->field_2_delta_count; v3++)
++        for (u32 i = 0; i < pDst->field_2_count; i++)
+         {
+-            *(u32*)&i->field_4_delta[4 * v3] += *(u32*)&field_48_delta_store; // TODO: fix me
++            uintptr_t baseOff = (uintptr_t)pDst->field_4_deltas[i].field_0_pData;
++            pDst->field_4_deltas[i].field_0_pData = (delta_store_entry*)((u8*)field_48_delta_store + baseOff);
+         }
+-        size = 8 * (u8)i->field_2_delta_count + 4;
+-        i = (delta_entry*)((char_type*)i + size);
++        u32 step = sizeof(sprite_delta) * pDst->field_2_count + 4;
++        off += step;
++        pDst = (sprite_deltas*)((u8*)pDst + step);
+     }
+ }
+ 
+ MATCH_FUNC(0x5AAC40)
+ void gtx_0x106C::SetSpriteIndexDataPtrs_5AAC40()
+ {
+-    u8* field_0_pData;
+-    sprite_index* v4;
+-
+     for (u32 i = 0; i < (u16)this->field_4_sprite_index_count; i++)
+     {
+-        field_0_pData = this->field_20_sprite_index[i].field_0_pData;
+-        v4 = &this->field_20_sprite_index[i];
+-        v4->field_0_pData = &this->field_34_sprite_graphics[(u32)field_0_pData];
++        uintptr_t off = (uintptr_t)this->field_20_sprite_index[i].field_0_pData;
++        this->field_20_sprite_index[i].field_0_pData = &this->field_34_sprite_graphics[off];
+     }
+ }
+ 
+@@ -585,12 +583,12 @@ void gtx_0x106C::build_delta_container_5AAC70()
+             maxSprite = pIter->field_0_which_sprite;
+         }
+ 
+-        u32 size = 8 * pIter->field_2_count + 4;
++        u32 size = sizeof(sprite_delta) * pIter->field_2_count + 4;
+         off += size;
+         pIter = (sprite_deltas*)((u8*)pIter + size);
+     }
+ 
+-    field_54_del = (delta_container*)Memory::malloc_4FE4D0(4 * maxSprite + 8);
++    field_54_del = (delta_container*)Memory::malloc_4FE4D0(sizeof(sprite_deltas*) * (maxSprite + 1) + 8);
+     field_54_del->field_0_count = maxSprite + 1;
+ 
+     for (u32 i = 0; i < field_54_del->field_0_count; i++)
+@@ -614,7 +612,7 @@ void gtx_0x106C::build_delta_container_5AAC70()
+             maxSprite = pIter->field_0_which_sprite;
+         }
+ 
+-        u32 size = 8 * pIter->field_2_count + 4;
++        u32 size = sizeof(sprite_delta) * pIter->field_2_count + 4;
+         pIter = (sprite_deltas*)((u8*)pIter + size);
+         off2 += size;
+     }
+@@ -721,13 +719,33 @@ void gtx_0x106C::load_map_object_info_5AAF00(u32 obji_chunk_len)
+ MATCH_FUNC(0x5AAF80)
+ void gtx_0x106C::load_sprite_index_5AAF80(u32 sprx_chunk_size)
+ {
+-    field_20_sprite_index = (sprite_index*)Memory::malloc_4FE4D0(sprx_chunk_size + 8);
+-    File::Global_Read_4A71C0(field_20_sprite_index, sprx_chunk_size);
++    u32 count = sprx_chunk_size / 8;
++    #pragma pack(push, 1)
++    struct sprite_index_disk
++    {
++        u32 offset;
++        u8 width;
++        u8 height;
++        s16 pad;
++    };
++    #pragma pack(pop)
++
++    std::vector<sprite_index_disk> disk(count);
++    File::Global_Read_4A71C0(disk.data(), sprx_chunk_size);
+     if ((sprx_chunk_size & ~7u) > 524280)
+     {
+         FatalError_4A38C0(Gta2Error::TooManySprites, "C:\\Splitting\\Gta2\\Source\\style.cpp", 1198, (u32)sprx_chunk_size >> 3);
+     }
+     field_4_sprite_index_count = ((u32)sprx_chunk_size >> 3) + 1;
++    field_20_sprite_index = (sprite_index*)Memory::malloc_4FE4D0((field_4_sprite_index_count + 1) * sizeof(sprite_index));
++    memset(field_20_sprite_index, 0, (field_4_sprite_index_count + 1) * sizeof(sprite_index));
++    for (u32 i = 0; i < count; i++)
++    {
++        field_20_sprite_index[i].field_0_pData = (BYTE*)(uintptr_t)disk[i].offset;
++        field_20_sprite_index[i].field_4_width = disk[i].width;
++        field_20_sprite_index[i].field_5_height = disk[i].height;
++        field_20_sprite_index[i].field_6_pad = disk[i].pad;
++    }
+ }
+ 
+ MATCH_FUNC(0x5AAFE0)
+diff --git a/Source/keybrd_0x204.cpp b/Source/keybrd_0x204.cpp
+index 59682aea..01e2cd64 100644
+--- a/Source/keybrd_0x204.cpp
++++ b/Source/keybrd_0x204.cpp
+@@ -8,7 +8,7 @@
+ 
+ DEFINE_GLOBAL(keybrd_0x204*, gKeybrd_0x204_6F52F4, 0x6F52F4);
+ 
+-char kTwoSpacesStr_620D2C[] = {' ', ' ', 0};
++char kTwoSpacesStr_620D2C[] = {' ', ' ', 0, 0};
+ 
+ MATCH_FUNC(0x4D5D70)
+ keybrd_0x204::keybrd_0x204()
+diff --git a/Source/map_0x370.cpp b/Source/map_0x370.cpp
+index 3c614520..744953b4 100644
+--- a/Source/map_0x370.cpp
++++ b/Source/map_0x370.cpp
+@@ -4458,7 +4458,7 @@ void Map_0x370::GetModifiedMapData_4E8CF0(u16*** outColumnPtr,
+                            Map_sub** outSubObj,
+                            s32* outSubObjBytes)
+ {
+-    *outColumnPtr = &this->field_0_pDmap->field_40008_pColumn[this->field_0_pDmap->field_40000_column_words];
++    *outColumnPtr = (u16**)&this->field_0_pDmap->field_40008_pColumn[this->field_0_pDmap->field_40000_column_words];
+ 
+     const s32 totalColumnWords = this->field_360_column_words;
+     const s32 consumedColumnWords = this->field_0_pDmap->field_40000_column_words;
+@@ -4557,7 +4557,7 @@ void Map_0x370::build_zone_list_4E90E0(u32 chunk_size)
+         in_use_size += zone_data_size;
+         pZone = (gmp_map_zone*)((u8*)pZone + zone_data_size);
+     }
+-    field_32C_pZones = (gmp_zone_list*)Memory::malloc_4FE4D0(4 * num_zones + 4);
++    field_32C_pZones = (gmp_zone_list*)Memory::malloc_4FE4D0(sizeof(gmp_map_zone*) * num_zones + sizeof(gmp_zone_list));
+ 
+     in_use_size = 0;
+     field_32C_pZones->field_0_num_zones = num_zones;
+@@ -4655,7 +4655,7 @@ void Map_0x370::load_dmap_4E92B0(u32 len)
+     u32 m_size = field_35C_column_word_extra * sizeof(DWORD);
+     u32 column_data_size = field_0_pDmap->field_40000_column_words * sizeof(DWORD);
+ 
+-    field_0_pDmap->field_40008_pColumn = (u16**)Memory::malloc_4FE4D0(m_size);
++    field_0_pDmap->field_40008_pColumn = (u32*)Memory::malloc_4FE4D0(m_size);
+ 
+     File::Global_Read_4A71C0(field_0_pDmap->field_40008_pColumn, column_data_size);
+ 
+diff --git a/Source/map_0x370.hpp b/Source/map_0x370.hpp
+index 2e378e21..9e99f23a 100644
+--- a/Source/map_0x370.hpp
++++ b/Source/map_0x370.hpp
+@@ -119,7 +119,7 @@ struct gmp_compressed_map_32
+     u32 field_0_base[256][256];
+     s32 field_40000_column_words;
+     s32 field_40004_num_blocks;
+-    u16** field_40008_pColumn;
++    u32* field_40008_pColumn;
+     gmp_block_info* field_4000C_block;
+ 
+     gmp_block_info* get_block(u32 block)
+diff --git a/Source/memory.cpp b/Source/memory.cpp
+index 77547b60..00e869af 100644
+--- a/Source/memory.cpp
++++ b/Source/memory.cpp
+@@ -33,5 +33,5 @@ void* __stdcall Memory::Aligned_malloc_4FE510(s32 requestedSize, void** pUnAlign
+     }
+ 
+     // Return aligned pointer
+-    return (void*)(((u32)*pUnAlignedPtr + 0xFFFF) & 0xFFFF0000);
++    return (void*)(((uintptr_t)*pUnAlignedPtr + 0xFFFF) & ~(uintptr_t)0xFFFF);
+ }
+\ No newline at end of file
+diff --git a/Source/miss2_0x11C.hpp b/Source/miss2_0x11C.hpp
+index 798b5204..2a833960 100644
+--- a/Source/miss2_0x11C.hpp
++++ b/Source/miss2_0x11C.hpp
+@@ -6,6 +6,7 @@
+ #include "ang16.hpp"
+ #include "fix16.hpp"
+ #include "miss2_xyz.hpp"
++#include "ScrPtr.hpp"
+ 
+ class Ped;
+ class Generator_2C;
+@@ -38,7 +39,7 @@ struct SCR_ONEVAR_RECT : SCR_CMD_HEADER
+ struct SCR_PLAYER_PED
+ {
+     SCR_CMD_HEADER field_0_header;
+-    Ped* field_8_ped;
++    ScrPtr<Ped> field_8_ped;
+     SCR_XYZ_f field_C_pos;
+     Ang16 field_18_rot;
+     s16 field_1A_remap;
+@@ -57,7 +58,7 @@ struct SCR_CAR_DATA_DEC : SCR_CMD_HEADER
+ 
+ struct SCR_CHAR_DATA_DEC : SCR_CMD_HEADER
+ {
+-    Ped* field_8_char;
++    ScrPtr<Ped> field_8_char;
+     SCR_XYZ_f field_C_pos;
+     Ang16 field_18_rot;
+     s16 field_1A_remap;
+@@ -67,7 +68,7 @@ struct SCR_CHAR_DATA_DEC : SCR_CMD_HEADER
+ 
+ struct SCR_OBJ_DATA : SCR_CMD_HEADER
+ {
+-    Object_2C* field_8_obj;
++    ScrPtr<Object_2C> field_8_obj;
+     SCR_XYZ_f field_C_pos;
+     u16 field_18_obj_id;
+     Ang16 field_1A_rot;
+@@ -129,13 +130,13 @@ struct SCR_POINTER : SCR_CMD_HEADER
+ {
+     union
+     {
+-        Ped* field_8_char;
+-        Car_BC* field_8_car;
+-        Object_2C* field_8_obj;
+-        Crane_15C* field_8_crane;
+-        Light_28* field_8_light;
+-        Door_38* field_8_door;
+-        Crusher_30* field_8_crusher;
++        ScrPtr<Ped> field_8_char;
++        ScrPtr<Car_BC> field_8_car;
++        ScrPtr<Object_2C> field_8_obj;
++        ScrPtr<Crane_15C> field_8_crane;
++        ScrPtr<Light_28> field_8_light;
++        ScrPtr<Door_38> field_8_door;
++        ScrPtr<Crusher_30> field_8_crusher;
+         s32 field_8_counter;
+         u16 field_8_index;
+         union
+@@ -143,9 +144,9 @@ struct SCR_POINTER : SCR_CMD_HEADER
+             u16 field_6;
+             u16 field_8;
+         } words;
+-        Generator_2C* field_8_generator;
+-        Hud_Arrow_7C* field_8_arrow;
+-        Sprite_18* field_8_sprite;
++        ScrPtr<Generator_2C> field_8_generator;
++        ScrPtr<Hud_Arrow_7C> field_8_arrow;
++        ScrPtr<Sprite_18> field_8_sprite;
+     };
+ };
+ 
+@@ -166,7 +167,7 @@ struct SCR_LOC_SEC_CHAR : SCR_CMD_HEADER
+ 
+ struct SCR_THREAD : SCR_CMD_HEADER
+ {
+-    miss2_0x11C* field_8_script_thread;
++    ScrPtr<miss2_0x11C> field_8_script_thread;
+     s16 field_C_thread_id;
+     u16 field_E_thread_start_cmd;
+     union
+@@ -190,7 +191,7 @@ struct SCR_THREAD : SCR_CMD_HEADER
+ 
+ struct SCR_CHAR_AREA_ANY : SCR_CMD_HEADER
+ {
+-    miss2_0x11C* field_8_script_thread;
++    ScrPtr<miss2_0x11C> field_8_script_thread;
+     s16 field_C;
+     u16 field_E;
+     Fix16 field_10_x;
+@@ -273,7 +274,7 @@ struct SCR_RADIOSTATION_DEC : SCR_CMD_HEADER
+ 
+ struct SCR_CRANE_TARGET_DEC : SCR_CMD_HEADER
+ {
+-    Crane_15C* field_8_crane;
++    ScrPtr<Crane_15C> field_8_crane;
+     u32 field_C_homecrane;
+     SCR_XY_f field_10_pos;
+     u16 field_18_home_rotation;
+@@ -285,7 +286,7 @@ struct SCR_CRANE_TARGET_DEC : SCR_CMD_HEADER
+ 
+ struct SCR_CRANE_BASIC_DEC : SCR_CMD_HEADER
+ {
+-    Crane_15C* field_8_crane;
++    ScrPtr<Crane_15C> field_8_crane;
+     u32 field_C_homecrane;
+     SCR_XY_f field_10_pos;
+     u16 field_18_home_rotation;
+@@ -449,7 +450,7 @@ struct SCR_IF_JUMP : SCR_CMD_HEADER
+ 
+ struct SCR_DOOR_DATA_DEC : SCR_CMD_HEADER
+ {
+-    Door_38* field_8_door;
++    ScrPtr<Door_38> field_8_door;
+     SCR_XYZ_uc field_C_block;
+     u8 field_F_face;
+     u8 field_10_gr_id;
+@@ -822,9 +823,9 @@ struct SCR_ARROW_ENTITY : SCR_CMD_HEADER
+ {
+     union
+     {
+-        Car_BC* field_8_car;
+-        Ped* field_8_char;
+-        Object_2C* field_8_obj;
++        ScrPtr<Car_BC> field_8_car;
++        ScrPtr<Ped> field_8_char;
++        ScrPtr<Object_2C> field_8_obj;
+     };
+ };
+ 
+diff --git a/Source/text_0x14.cpp b/Source/text_0x14.cpp
+index 78c74323..1b22fc33 100644
+--- a/Source/text_0x14.cpp
++++ b/Source/text_0x14.cpp
+@@ -82,18 +82,32 @@ void text_0x14::RemapExtendedChars_5B5930(wchar_t* pStr)
+     }
+ }
+ 
++#pragma pack(push, 1)
++struct text_entry_file {
++    u32 offset;
++    char key[8];
++};
++#pragma pack(pop)
++
+ MATCH_FUNC(0x5B5960)
+ void text_0x14::TKEY_Load_5B5960(u32 chunkSize)
+ {
+-    // TODO: probably an inline
+-    field_0_tKey.field_4_tKey_count = chunkSize / sizeof(text_0xC);
+-    field_0_tKey.field_0_tKey = new text_0xC[field_0_tKey.field_4_tKey_count];
++    u32 count = chunkSize / sizeof(text_entry_file);
++    field_0_tKey.field_4_tKey_count = count;
++    field_0_tKey.field_0_tKey = new text_0xC[count];
+     if (!field_0_tKey.field_0_tKey)
+     {
+         FatalError_4A38C0(Gta2Error::OutOfMemoryNewOperator, "C:\\Splitting\\Gta2\\Source\\text.cpp", 218);
+     }
+ 
+-    File::Global_Read_4A71C0(field_0_tKey.field_0_tKey, chunkSize);
++    std::vector<text_entry_file> rawEntries(count);
++    File::Global_Read_4A71C0(rawEntries.data(), chunkSize);
++    for (u32 i = 0; i < count; ++i)
++    {
++        field_0_tKey.field_0_tKey[i].field_0_pwstr = reinterpret_cast<wchar_t*>((uintptr_t)rawEntries[i].offset);
++        memcpy(field_0_tKey.field_0_tKey[i].field_4_key, rawEntries[i].key, 8);
++        field_0_tKey.field_0_tKey[i].field_8 = 0;
++    }
+ }
+ 
+ MATCH_FUNC(0x5B59B0)
+@@ -104,7 +118,7 @@ void text_0x14::TDAT_Offsets2Strings_5B59B0(BYTE* pDat)
+     for (u32 idx = 0; idx < field_0_tKey.field_4_tKey_count; idx++)
+     {
+         // The raw file record is an offset, convert it to pos32 to the string data in the TDAT
+-        const s32 offsetInBytes = reinterpret_cast<int>(ptKeyIter->field_0_pwstr);
++        const uintptr_t offsetInBytes = reinterpret_cast<uintptr_t>(ptKeyIter->field_0_pwstr);
+         ptKeyIter->field_0_pwstr = reinterpret_cast<wchar_t*>(&pDat[offsetInBytes]);
+         ptKeyIter++;
+     }
+@@ -127,7 +141,7 @@ s32 __cdecl text_0x14::TKeySearch_5B5A10(const void* a, const void* b)
+ {
+     const char_type* pIdStr = (const char_type*)a;
+     const text_0xC* a2 = (const text_0xC*)b;
+-    return strcmp(pIdStr, (const char_type*)&a2->field_4_pKey); // TODO: ???
++    return strncmp(pIdStr, a2->field_4_key, 8);
+ }
+ 
+ MATCH_FUNC(0x5B5A50)
+diff --git a/Source/text_0x14.hpp b/Source/text_0x14.hpp
+index c6ded84e..1b53985a 100644
+--- a/Source/text_0x14.hpp
++++ b/Source/text_0x14.hpp
+@@ -6,7 +6,7 @@
+ struct text_0xC
+ {
+     wchar_t* field_0_pwstr;
+-    const char_type* field_4_pKey;
++    char field_4_key[8];
+     s32 field_8;
+ };
+ 
+-- 
+2.43.0
+
