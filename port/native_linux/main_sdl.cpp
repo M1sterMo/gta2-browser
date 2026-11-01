@@ -30,6 +30,8 @@ void gta2_port_set_hud_edges(int on);
 void gta2_port_set_interpolation(int on);
 bool ToggleTextureFilter();
 bool IsSmoothFilterEnabled();
+bool ToggleMinimap();
+bool IsMinimapEnabled();
 }
 
 // Map SDL_Scancode to DirectInput Scan Code and Virtual Key
@@ -285,6 +287,11 @@ int main(int argc, char** argv) {
                     if (ev.key.keysym.scancode == SDL_SCANCODE_F8) {
                         bool smooth = ToggleTextureFilter();
                         printf("[Graphics] Texture filter: %s\n", smooth ? "Smooth (Bilinear)" : "Retro (Pixelated / Nearest)");
+                        continue;
+                    }
+                    if (ev.key.keysym.scancode == SDL_SCANCODE_F9 || ev.key.keysym.scancode == SDL_SCANCODE_M) {
+                        bool mini = ToggleMinimap();
+                        printf("[HUD] Minimap Radar: %s\n", mini ? "ON" : "OFF");
                         continue;
                     }
                     if (ev.key.keysym.scancode == SDL_SCANCODE_F7) {

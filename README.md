@@ -19,6 +19,7 @@
 * **Zero Wine / Zero Emulation**: Authentic 64-bit Linux ELF binary (`gta2_linux`).
 * **16:9 Widescreen & Modern Camera**: Default panoramic 16:9 720p HD with smoothed camera (no jerky zoom pumping) and dynamically adjustable view distance (`-` and `=`).
 * **Smooth Graphics / Filter Toggle**: Hardware-accelerated OpenGL 3.3 renderer with **Smooth Bilinear Filtering** by default and instant retro toggle (`[F8]` switches between Smooth and Crisp Pixelated).
+* **Native In-Engine Radar Minimap**: Circular minimap HUD with real-time district map, player heading arrow, and dynamic mission/objective blips (Toggle with `[F9]` or `[M]`).
 * **Responsive Zero-Lag Input**: Direct physical key-state mapping for driving and walking with zero key-sticking or queue lag.
 * **Native Audio Engine**: Real-time SDL2 multi-channel audio mixer supporting sound bank SFX (`.sdt`/`.raw`) and speech/radio streams (`.wav`).
 * **64-bit Architecture Ready**: Custom `ScrPtr` handle layer preserving 32-bit binary level script layout while executing with 64-bit pointers.
@@ -49,7 +50,7 @@
 | `L` or `Right Ctrl` | Punch / Attack / Shoot |
 | `J` / `K` | Previous / Next weapon |
 | `I` / `O` | Special (Horn / Car extras) |
-| `M` | Map and waypoints |
+| `M` / `F9` | **Toggle Radar Minimap** (On ⇄ Off) |
 | `F8` | **Toggle Graphics Filter** (Smooth Bilinear ⇄ Retro Pixelated) |
 | `−` / `=` | **Adjust View Distance** (Zoom Out / Zoom In) |
 | `F7` | Toggle Camera Mode (Modern Smooth ⇄ Classic 1999) |
