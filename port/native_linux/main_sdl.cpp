@@ -1,3 +1,12 @@
+/*
+ * Grand Theft Auto 2 - Native Linux Port Layer
+ *
+ * This software is a non-commercial educational fan-made platform layer for Linux.
+ * Grand Theft Auto, GTA, and GTA 2 are registered trademarks of Take-Two Interactive
+ * Software, Inc. and Rockstar Games.
+ * No copyrighted game assets, levels, or data files are distributed with this software.
+ */
+
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
 #include <stdio.h>

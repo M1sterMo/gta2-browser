@@ -22,9 +22,11 @@ SOFTWARE.
 
 ---
 
-Scope: this licence covers this project's own work (the browser platform layers
-in port/platform, port/render and port/audio, the web shell in web/, scripts/ and
-docs/). The files in port/patches modify the gta2_re decompilation
+Scope: This license covers this project's own native and browser platform work
+(native Linux platform in port/native_linux/, browser platform layers in
+port/platform, port/render and port/audio, web shell in web/, scripts/ and docs/).
+The files in port/patches modify the gta2_re decompilation
 (https://github.com/CriminalRETeam/gta2_re) and remain subject to that project's
-terms. GTA2 itself is (c) Rockstar Games / Take-Two Interactive; no game files
-are included.
+terms. Grand Theft Auto, GTA, and GTA 2 are registered trademarks and copyrights
+of Take-Two Interactive Software, Inc. and Rockstar Games. This project is
+non-commercial and educational; no copyrighted game files or assets are included.
