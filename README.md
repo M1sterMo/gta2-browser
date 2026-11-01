@@ -1,5 +1,12 @@
 # Grand Theft Auto 2 - Native Linux & Web Port
 
+> [!IMPORTANT]
+> **Legal Notice & Non-Commercial Fan Disclaimer**
+> * **Intellectual Property**: "Grand Theft Auto", "GTA", "GTA 2", and related titles, logos, audio, and game assets are trademarks and/or registered copyrights of **Take-Two Interactive Software, Inc.** and **Rockstar Games**.
+> * **Non-Commercial & Educational**: This is an independent, non-commercial open-source preservation project created for Linux compatibility and educational research. It is **not** endorsed, affiliated with, sponsored, or supported by Rockstar Games or Take-Two Interactive.
+> * **No Copyrighted Game Assets Distributed**: This repository does not contain, host, or distribute proprietary game assets (audio banks, textures, map files, or commercial binaries). Players must supply their own legally acquired GTA 2 game data files.
+> * **DMCA / Takedown Compliance**: If you are a rights holder and object to any material in this repository, please contact the maintainers for immediate and full compliance with takedown requests.
+
 **Grand Theft Auto 2 (1999), the real game, running 100% natively on Linux (64-bit ELF, Zero Wine) and in modern Web Browsers.**
 
 * **Native Linux Desktop**: Authentic 64-bit ELF binary running directly on Linux with **SDL2**, **OpenGL 3.3 Core Profile**, and native **ALSA / PulseAudio / PipeWire** audio mixing. No Wine, no Proton, no Windows DLLs.
